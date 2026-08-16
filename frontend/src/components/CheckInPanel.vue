@@ -33,6 +33,12 @@
 		</div>
 	</div>
 
+	<SelfieCapture
+		v-if="showSelfie"
+		@captured="handleSelfieCapture"
+		@cancel="handleSelfieCancel"
+	/>
+
 	<ion-modal
 		v-if="settings.data?.allow_employee_checkin_from_mobile_app"
 		ref="modal"
@@ -70,7 +76,7 @@
 				</div>
 			</template>
 
-			<Button :loading="checkins.insert.loading" variant="solid" class="w-full py-5 text-sm disabled:bg-gray-700" @click="submitLog(nextAction.action)">
+			<Button :loading="checkins.insert.loading || showSelfie" variant="solid" class="w-full py-5 text-sm disabled:bg-gray-700" @click="submitLog(nextAction.action)">
 				{{ __("Confirm {0}", [nextAction.label]) }}
 			</Button>
 		</div>
@@ -84,6 +90,7 @@ import { IonModal, modalController } from "@ionic/vue"
 
 import { formatTimestamp } from "@/utils/formatters"
 import { settings } from "@/data/settings"
+import SelfieCapture from "@/components/SelfieCapture.vue"
 
 const DOCTYPE = "Employee Checkin"
 
@@ -95,6 +102,9 @@ const checkinTimestamp = ref(null)
 const latitude = ref(0)
 const longitude = ref(0)
 const locationStatus = ref("")
+const showSelfie = ref(false)
+const pendingLogType = ref(null)
+const pendingSelfieFile = ref(null)
 
 const checkins = createListResource({
 	doctype: DOCTYPE,
@@ -153,7 +163,70 @@ const handleEmployeeCheckin = () => {
 	}
 }
 
-const submitLog = (logType) => {
+async function uploadSelfie(blob) {
+	const fd = new FormData()
+	fd.append('file', blob, `checkin-selfie-${Date.now()}.jpg`)
+	fd.append('is_private', 1)
+	const res = await fetch('/api/method/upload_file', {
+		method: 'POST',
+		headers: { 'X-Frappe-CSRF-Token': window.csrf_token },
+		credentials: 'same-origin',
+		body: fd,
+	})
+	if (!res.ok) {
+		const errData = await res.json()
+		throw new Error(errData.message || 'Selfie upload failed')
+	}
+	const data = await res.json()
+	return data.message.file_url
+}
+
+async function handleSelfieCapture(blob) {
+	let logType = pendingLogType.value
+	let fileUrl = null
+	
+	try {
+		// Upload selfie first
+		fileUrl = await uploadSelfie(blob)
+		pendingSelfieFile.value = fileUrl
+		
+		// If logType is still null, something went wrong
+		if (!logType) {
+			throw new Error("Check-in type (IN/OUT) was not set")
+		}
+		
+		// Now submit with selfie
+		await submitLogWithSelfie(logType, fileUrl)
+	} catch (error) {
+		const actionLabel = logType === "IN" ? __("Check-in") : __("Check-out")
+		toast({
+			title: __("Error"),
+			text: error.message || __("Failed to complete check-in"),
+			icon: "alert-circle",
+			position: "bottom-center",
+			iconClasses: "text-red-500",
+		})
+		console.error("Selfie capture error:", error)
+	} finally {
+		showSelfie.value = false
+		pendingLogType.value = null
+		pendingSelfieFile.value = null
+	}
+}
+
+function handleSelfieCancel() {
+	showSelfie.value = false
+	pendingLogType.value = null
+	pendingSelfieFile.value = null
+	// Dismiss any open modals
+	try {
+		modalController.dismiss()
+	} catch (e) {
+		// Modal may already be closed
+	}
+}
+
+async function submitLogWithSelfie(logType, fileUrl) {
 	const actionLabel = logType === "IN" ? __("Check-in") : __("Check-out")
 
 	checkins.insert.submit(
@@ -163,10 +236,12 @@ const submitLog = (logType) => {
 			time: checkinTimestamp.value,
 			latitude: latitude.value,
 			longitude: longitude.value,
+			custom_selfie: fileUrl,
+			custom_checkin_source: "PWA Selfie App",
 		},
 		{
 			onSuccess() {
-				modalController.dismiss()
+				// Modal was already dismissed when selfie capture started
 				toast({
 					title: __("Success"),
 					text: __("{0} successful!", [actionLabel]),
@@ -190,6 +265,14 @@ const submitLog = (logType) => {
 			},
 		}
 	)
+}
+
+const submitLog = (logType) => {
+	// Store the log type and show selfie capture overlay
+	pendingLogType.value = logType
+	showSelfie.value = true
+	// Dismiss the confirmation modal while selfie is being captured
+	modalController.dismiss()
 }
 
 onMounted(() => {

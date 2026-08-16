@@ -223,7 +223,10 @@ doc_events = {
 	"Expense Claim": {"on_submit": "hrms.telemetry.on_expense_claim_submit"},
 	"Attendance Request": {"on_submit": "hrms.telemetry.on_attendance_request_submit"},
 	"Shift Request": {"on_submit": "hrms.telemetry.on_shift_request_submit"},
-	"Employee Checkin": {"after_insert": "hrms.telemetry.on_employee_checkin"},
+	"Employee Checkin": {
+		"validate": "hrms.hr.doctype.employee_checkin.selfie_validation.validate_checkin_selfie",
+		"after_insert": "hrms.telemetry.on_employee_checkin",
+	},
 	# ---- Activation telemetry: post-install setup funnel (first-time milestones) ----
 	"Shift Type": {"after_insert": "hrms.telemetry.on_milestone_insert"},
 	"Leave Type": {"after_insert": "hrms.telemetry.on_milestone_insert"},
