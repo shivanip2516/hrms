@@ -23,7 +23,6 @@
         "section_break_ksbo",
         "fetch_geolocation",
         "geolocation",
-        "custom_selfie",
         "shift_timings_section",
         "shift_start",
         "shift_end",
@@ -184,11 +183,6 @@
             "hidden": 1,
             "label": "Overtime Type",
             "options": "Overtime Type"
-        },
-        {
-            "fieldname": "custom_selfie",
-            "fieldtype": "Attach Image",
-            "label": "Check-in Selfie"
         },
         {
             "fieldname": "custom_checkin_source",
