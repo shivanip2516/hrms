@@ -59,7 +59,7 @@
 </template>
 
 <script setup>
-import { inject, ref } from "vue"
+import { inject, onMounted, ref } from "vue"
 import { IonModal } from "@ionic/vue"
 import { Badge, FeatherIcon, toast } from "frappe-ui"
 import BaseLayout from "@/components/BaseLayout.vue"
@@ -78,12 +78,17 @@ const newVisit = ref(emptyVisit())
 const visitApi = async (method, args = {}) => {
 	const response = await fetch(`/api/method/dekure_custom.api.${method}`, {
 		method: "POST",
-		headers: { "Content-Type": "application/json", "X-Frappe-CSRF-Token": window.csrf_token },
+		headers: {
+			"Content-Type": "application/json",
+			"X-Frappe-CSRF-Token": window.csrf_token,
+		},
 		credentials: "same-origin",
 		body: JSON.stringify(args),
 	})
 	const payload = await response.json()
-	if (!response.ok || payload.exc) throw new Error(payload.message || __('Unable to complete the visit action.'))
+	if (!response.ok || payload.exc) {
+		throw new Error(getServerError(payload))
+	}
 	return payload.message
 }
 
@@ -118,10 +123,16 @@ function getCurrentLocation() {
 		navigator.geolocation.getCurrentPosition(
 			(position) => {
 				const { latitude, longitude } = position.coords
-				if (!latitude || !longitude) return reject(new Error(__('Unable to get your current location. Please enable location permission/GPS and try again.')))
+				if (
+					typeof latitude !== "number" ||
+					typeof longitude !== "number" ||
+					(latitude === 0 && longitude === 0)
+				) {
+					return reject(new Error(__('Unable to get your current location. Please enable location permission/GPS and try again.')))
+				}
 				resolve({ latitude, longitude })
 			},
-			() => reject(new Error(__('Unable to get your current location. Please enable location permission/GPS and try again.'))),
+			(error) => reject(new Error(getLocationError(error))),
 			{ enableHighAccuracy: true, timeout: 10000, maximumAge: 0 },
 		)
 	})
@@ -141,11 +152,51 @@ function emptyVisit() { return { customer: "", contact_person: "", address: "", 
 function formatTime(value) { return value ? dayjs(value).format("h:mm A") : "-" }
 function statusTheme(status) { return { Planned: 'gray', 'In Progress': 'orange', Completed: 'green', Cancelled: 'red' }[status] || 'gray' }
 function showError(error) { toast({ title: __('Error'), text: error.message, icon: 'alert-circle', position: 'bottom-center', iconClasses: 'text-red-500' }) }
+function getLocationError(error) {
+	if (error?.code === error?.PERMISSION_DENIED) {
+		return __('Location permission is required to punch a visit. Please allow location access and try again.')
+	}
+	if (error?.code === error?.TIMEOUT) {
+		return __('Unable to get your location in time. Please check GPS/signal and try again.')
+	}
+	return __('Unable to get your current location. Please enable location permission/GPS and try again.')
+}
+function getServerError(payload) {
+	if (payload?._server_messages) {
+		try {
+			const messages = JSON.parse(payload._server_messages)
+				.map((message) => JSON.parse(message).message)
+				.filter(Boolean)
+			if (messages.length) return messages.join("\n")
+		} catch {
+			// Fall through to the normal Frappe message/error fields.
+		}
+	}
+	return payload?.message || payload?.exception || __('Unable to complete the visit action.')
+}
 
 const VisitDetails = {
 	props: ["visit", "formatTime"],
-	template: `<div class="space-y-3 text-sm"><div><b>Status</b><div>{{ visit.status }}</div></div><div><b>Visit Date</b><div>{{ visit.visit_date }}</div></div><div v-if="visit.visit_type"><b>Visit Type</b><div>{{ visit.visit_type }}</div></div><div v-if="visit.visit_purpose"><b>Purpose</b><div>{{ visit.visit_purpose }}</div></div><div v-if="visit.checkin_time"><b>Check In</b><div>{{ formatTime(visit.checkin_time) }} · {{ visit.checkin_latitude }}, {{ visit.checkin_longitude }}</div></div><div v-if="visit.checkout_time"><b>Check Out</b><div>{{ formatTime(visit.checkout_time) }} · {{ visit.checkout_latitude }}, {{ visit.checkout_longitude }}</div></div><div v-if="visit.cancellation_reason"><b>Cancellation Reason</b><div>{{ visit.cancellation_reason }}</div></div></div>`,
+	template: `
+		<div class="space-y-3 text-sm">
+			<div><b>Status</b><div>{{ visit.status }}</div></div>
+			<div><b>Visit Date</b><div>{{ visit.visit_date }}</div></div>
+			<div v-if="visit.visit_type"><b>Visit Type</b><div>{{ visit.visit_type }}</div></div>
+			<div v-if="visit.visit_purpose"><b>Purpose</b><div>{{ visit.visit_purpose }}</div></div>
+			<div v-if="visit.checkin_time">
+				<b>Check In</b>
+				<div>{{ formatTime(visit.checkin_time) }} · {{ visit.checkin_latitude }}, {{ visit.checkin_longitude }}</div>
+				<div v-if="visit.checkin_address" class="text-gray-600 mt-1">{{ visit.checkin_address }}</div>
+			</div>
+			<div v-if="visit.checkout_time">
+				<b>Check Out</b>
+				<div>{{ formatTime(visit.checkout_time) }} · {{ visit.checkout_latitude }}, {{ visit.checkout_longitude }}</div>
+				<div v-if="visit.checkout_address" class="text-gray-600 mt-1">{{ visit.checkout_address }}</div>
+			</div>
+			<div v-if="visit.cancellation_reason"><b>Cancellation Reason</b><div>{{ visit.cancellation_reason }}</div></div>
+		</div>
+	`,
 }
 
-loadVisits()
+onMounted(loadVisits)
 </script>
