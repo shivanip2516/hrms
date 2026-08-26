@@ -254,3 +254,46 @@ export const EMPLOYEE_CHECKIN_FIELDS = [
 		fieldtype: "geolocation",
 	},
 ]
+
+export const COMPENSATORY_LEAVE_REQUEST_FIELDS = [
+	{
+		fieldname: "name",
+		label: "ID",
+		fieldtype: "Data",
+	},
+	{
+		fieldname: "leave_type",
+		label: "Leave Type",
+		fieldtype: "Link",
+	},
+	{
+		fieldname: "work_from_date",
+		label: "Work From Date",
+		fieldtype: "Date",
+	},
+	{
+		fieldname: "work_end_date",
+		label: "Work End Date",
+		fieldtype: "Date",
+	},
+	{
+		fieldname: "half_day",
+		label: "Half Day",
+		fieldtype: "Check",
+	},
+	{
+		fieldname: "half_day_date",
+		label: "Half Day Date",
+		fieldtype: "Date",
+	},
+	{
+		fieldname: "employee",
+		label: "Employee",
+		fieldtype: "Link",
+	},
+	{
+		fieldname: "reason",
+		label: "Reason",
+		fieldtype: "Small Text",
+	},
+]
