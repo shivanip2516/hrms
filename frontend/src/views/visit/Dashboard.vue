@@ -33,184 +33,184 @@
 					<Button v-else-if="visit.status === 'In Progress'" class="w-full" variant="solid" :loading="actionName === visit.name" @click.stop="punch(visit, 'out')">{{ __('Punch Out') }}</Button>
 				</div>
 			</div>
+
+			<!-- Add Visit Modal -->
+			<ion-modal :is-open="showAddModal" @didDismiss="showAddModal = false">
+				<div class="p-5 flex flex-col gap-4 overflow-y-auto h-full bg-white">
+					<div class="flex justify-between items-center">
+						<h2 class="text-xl font-bold">{{ __('Add Visit') }}</h2>
+						<Button variant="ghost" @click="showAddModal = false"><FeatherIcon name="x" /></Button>
+					</div>
+
+					<!-- Customer Type Switcher -->
+					<div class="flex flex-col gap-1.5">
+						<div class="text-sm font-medium text-gray-700">{{ __('Customer Selection') }}</div>
+						<div class="grid grid-cols-2 p-1 bg-gray-100 rounded-lg gap-1">
+							<button
+								type="button"
+								class="py-2 text-sm font-medium rounded-md transition-all text-center"
+								:class="customerType === 'Existing Customer' ? 'bg-white shadow-sm text-gray-900 font-semibold' : 'text-gray-600 hover:text-gray-900'"
+								@click="customerType = 'Existing Customer'"
+							>
+								{{ __('Existing Customer') }}
+							</button>
+							<button
+								type="button"
+								class="py-2 text-sm font-medium rounded-md transition-all text-center"
+								:class="customerType === 'New Customer' ? 'bg-white shadow-sm text-gray-900 font-semibold' : 'text-gray-600 hover:text-gray-900'"
+								@click="customerType = 'New Customer'"
+							>
+								{{ __('New Customer') }}
+							</button>
+						</div>
+					</div>
+
+					<!-- Existing Customer Field -->
+					<div v-if="customerType === 'Existing Customer'" class="flex flex-col gap-1">
+						<label class="text-sm font-medium text-gray-700">{{ __('Existing Customer') }}</label>
+						<Link v-model="newVisit.customer" doctype="Customer" />
+					</div>
+
+					<!-- New Customer Field -->
+					<div v-else class="flex flex-col gap-1">
+						<div class="flex justify-between items-center">
+							<label class="text-sm font-medium text-gray-700">{{ __('New Customer') }}</label>
+							<button type="button" class="text-xs font-semibold text-blue-600 hover:text-blue-800" @click="showAddCustomerModal = true">
+								+ {{ __('Add New') }}
+							</button>
+						</div>
+						<Autocomplete
+							v-model="selectedNewCustomerOption"
+							:options="newCustomerOptions"
+							:placeholder="__('Select New Customer or Add New')"
+							@update:query="searchNewCustomers"
+						/>
+					</div>
+
+					<!-- Contact Person Field -->
+					<div class="flex flex-col gap-1">
+						<label class="text-sm font-medium text-gray-700">{{ __('Contact Person') }}</label>
+						<input
+							v-model="newVisit.contact_person"
+							type="text"
+							class="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
+							:placeholder="__('Contact person name')"
+						/>
+					</div>
+
+					<!-- Address Field -->
+					<div class="flex flex-col gap-1">
+						<label class="text-sm font-medium text-gray-700">{{ __('Address') }}</label>
+						<textarea
+							v-model="newVisit.address"
+							class="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
+							rows="2"
+							:placeholder="__('Enter visit address')"
+						></textarea>
+					</div>
+
+					<div class="flex flex-col gap-1">
+						<label class="text-sm font-medium text-gray-700">{{ __('Visit Date') }}</label>
+						<input v-model="newVisit.visit_date" type="date" class="w-full border border-gray-300 rounded px-3 py-2 text-sm" />
+					</div>
+
+					<div class="flex flex-col gap-1">
+						<label class="text-sm font-medium text-gray-700">{{ __('Visit Type') }}</label>
+						<input v-model="newVisit.visit_type" class="w-full border border-gray-300 rounded px-3 py-2 text-sm" :placeholder="__('Customer Visit')" />
+					</div>
+
+					<div class="flex flex-col gap-1">
+						<label class="text-sm font-medium text-gray-700">{{ __('Visit Purpose') }}</label>
+						<textarea v-model="newVisit.visit_purpose" class="w-full border border-gray-300 rounded px-3 py-2 text-sm" rows="2" />
+					</div>
+
+					<div class="flex flex-col gap-1">
+						<label class="text-sm font-medium text-gray-700">{{ __('Remarks') }}</label>
+						<textarea v-model="newVisit.remarks" class="w-full border border-gray-300 rounded px-3 py-2 text-sm" rows="2" />
+					</div>
+
+					<Button variant="solid" class="w-full py-5" :loading="saving" @click="saveVisit">{{ __('Save Visit') }}</Button>
+				</div>
+			</ion-modal>
+
+			<!-- Add New Customer Modal -->
+			<ion-modal :is-open="showAddCustomerModal" @didDismiss="showAddCustomerModal = false">
+				<div class="p-5 flex flex-col gap-4 overflow-y-auto h-full bg-white">
+					<div class="flex justify-between items-center">
+						<h2 class="text-xl font-bold">{{ __('Add New Customer') }}</h2>
+						<Button variant="ghost" @click="showAddCustomerModal = false"><FeatherIcon name="x" /></Button>
+					</div>
+					<div class="text-xs text-gray-500">{{ __('This customer will be saved specifically for PWA Visits.') }}</div>
+
+					<div class="flex flex-col gap-1">
+						<label class="text-sm font-medium text-gray-700">{{ __('Customer Name') }} <span class="text-red-500">*</span></label>
+						<input
+							v-model="newCustomerForm.customer_name"
+							type="text"
+							class="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
+							:placeholder="__('Enter customer name')"
+						/>
+					</div>
+
+					<div class="flex flex-col gap-1">
+						<label class="text-sm font-medium text-gray-700">{{ __('Contact Person') }}</label>
+						<input
+							v-model="newCustomerForm.contact_person"
+							type="text"
+							class="w-full border border-gray-300 rounded px-3 py-2 text-sm"
+							:placeholder="__('Contact person')"
+						/>
+					</div>
+
+					<div class="flex flex-col gap-1">
+						<label class="text-sm font-medium text-gray-700">{{ __('Mobile No') }}</label>
+						<input
+							v-model="newCustomerForm.mobile_no"
+							type="tel"
+							class="w-full border border-gray-300 rounded px-3 py-2 text-sm"
+							:placeholder="__('Mobile number')"
+						/>
+					</div>
+
+					<div class="flex flex-col gap-1">
+						<label class="text-sm font-medium text-gray-700">{{ __('Email') }}</label>
+						<input
+							v-model="newCustomerForm.email"
+							type="email"
+							class="w-full border border-gray-300 rounded px-3 py-2 text-sm"
+							:placeholder="__('Email address')"
+						/>
+					</div>
+
+					<div class="flex flex-col gap-1">
+						<label class="text-sm font-medium text-gray-700">{{ __('Address') }}</label>
+						<textarea
+							v-model="newCustomerForm.address"
+							class="w-full border border-gray-300 rounded px-3 py-2 text-sm"
+							rows="2"
+							:placeholder="__('Customer address')"
+						></textarea>
+					</div>
+
+					<div class="flex gap-2 mt-2">
+						<Button variant="subtle" class="w-1/2 py-3" @click="showAddCustomerModal = false">{{ __('Cancel') }}</Button>
+						<Button variant="solid" class="w-1/2 py-3" :loading="savingCustomer" @click="saveCustomer">{{ __('Save Customer') }}</Button>
+					</div>
+				</div>
+			</ion-modal>
+
+			<!-- Visit Details Modal -->
+			<ion-modal :is-open="Boolean(selectedVisit)" @didDismiss="selectedVisit = null">
+				<div v-if="selectedVisit" class="p-5 flex flex-col gap-4 h-full bg-white overflow-y-auto">
+					<div class="flex justify-between items-center">
+						<h2 class="text-xl font-bold">{{ selectedVisit.customer_name || selectedVisit.customer || selectedVisit.new_customer }}</h2>
+						<Button variant="ghost" @click="selectedVisit = null"><FeatherIcon name="x" /></Button>
+					</div>
+					<VisitDetails :visit="selectedVisit" :formatTime="formatTime" />
+				</div>
+			</ion-modal>
 		</template>
 	</BaseLayout>
-
-	<!-- Add Visit Modal -->
-	<ion-modal :is-open="showAddModal" @didDismiss="showAddModal = false">
-		<div class="p-5 flex flex-col gap-4 overflow-y-auto h-full bg-white">
-			<div class="flex justify-between items-center">
-				<h2 class="text-xl font-bold">{{ __('Add Visit') }}</h2>
-				<Button variant="ghost" @click="showAddModal = false"><FeatherIcon name="x" /></Button>
-			</div>
-
-			<!-- Customer Type Switcher -->
-			<div class="flex flex-col gap-1.5">
-				<div class="text-sm font-medium text-gray-700">{{ __('Customer Selection') }}</div>
-				<div class="grid grid-cols-2 p-1 bg-gray-100 rounded-lg gap-1">
-					<button
-						type="button"
-						class="py-2 text-sm font-medium rounded-md transition-all text-center"
-						:class="customerType === 'Existing Customer' ? 'bg-white shadow-sm text-gray-900 font-semibold' : 'text-gray-600 hover:text-gray-900'"
-						@click="customerType = 'Existing Customer'"
-					>
-						{{ __('Existing Customer') }}
-					</button>
-					<button
-						type="button"
-						class="py-2 text-sm font-medium rounded-md transition-all text-center"
-						:class="customerType === 'New Customer' ? 'bg-white shadow-sm text-gray-900 font-semibold' : 'text-gray-600 hover:text-gray-900'"
-						@click="customerType = 'New Customer'"
-					>
-						{{ __('New Customer') }}
-					</button>
-				</div>
-			</div>
-
-			<!-- Existing Customer Field -->
-			<div v-if="customerType === 'Existing Customer'" class="flex flex-col gap-1">
-				<label class="text-sm font-medium text-gray-700">{{ __('Existing Customer') }}</label>
-				<Link v-model="newVisit.customer" doctype="Customer" />
-			</div>
-
-			<!-- New Customer Field -->
-			<div v-else class="flex flex-col gap-1">
-				<div class="flex justify-between items-center">
-					<label class="text-sm font-medium text-gray-700">{{ __('New Customer') }}</label>
-					<button type="button" class="text-xs font-semibold text-blue-600 hover:text-blue-800" @click="showAddCustomerModal = true">
-						+ {{ __('Add New') }}
-					</button>
-				</div>
-				<Autocomplete
-					v-model="selectedNewCustomerOption"
-					:options="newCustomerOptions"
-					:placeholder="__('Select New Customer or Add New')"
-					@update:query="searchNewCustomers"
-				/>
-			</div>
-
-			<!-- Contact Person Field -->
-			<div class="flex flex-col gap-1">
-				<label class="text-sm font-medium text-gray-700">{{ __('Contact Person') }}</label>
-				<input
-					v-model="newVisit.contact_person"
-					type="text"
-					class="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
-					:placeholder="__('Contact person name')"
-				/>
-			</div>
-
-			<!-- Address Field -->
-			<div class="flex flex-col gap-1">
-				<label class="text-sm font-medium text-gray-700">{{ __('Address') }}</label>
-				<textarea
-					v-model="newVisit.address"
-					class="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
-					rows="2"
-					:placeholder="__('Enter visit address')"
-				></textarea>
-			</div>
-
-			<div class="flex flex-col gap-1">
-				<label class="text-sm font-medium text-gray-700">{{ __('Visit Date') }}</label>
-				<input v-model="newVisit.visit_date" type="date" class="w-full border border-gray-300 rounded px-3 py-2 text-sm" />
-			</div>
-
-			<div class="flex flex-col gap-1">
-				<label class="text-sm font-medium text-gray-700">{{ __('Visit Type') }}</label>
-				<input v-model="newVisit.visit_type" class="w-full border border-gray-300 rounded px-3 py-2 text-sm" :placeholder="__('Customer Visit')" />
-			</div>
-
-			<div class="flex flex-col gap-1">
-				<label class="text-sm font-medium text-gray-700">{{ __('Visit Purpose') }}</label>
-				<textarea v-model="newVisit.visit_purpose" class="w-full border border-gray-300 rounded px-3 py-2 text-sm" rows="2" />
-			</div>
-
-			<div class="flex flex-col gap-1">
-				<label class="text-sm font-medium text-gray-700">{{ __('Remarks') }}</label>
-				<textarea v-model="newVisit.remarks" class="w-full border border-gray-300 rounded px-3 py-2 text-sm" rows="2" />
-			</div>
-
-			<Button variant="solid" class="w-full py-5" :loading="saving" @click="saveVisit">{{ __('Save Visit') }}</Button>
-		</div>
-	</ion-modal>
-
-	<!-- Add New Customer Modal -->
-	<ion-modal :is-open="showAddCustomerModal" @didDismiss="showAddCustomerModal = false">
-		<div class="p-5 flex flex-col gap-4 overflow-y-auto h-full bg-white">
-			<div class="flex justify-between items-center">
-				<h2 class="text-xl font-bold">{{ __('Add New Customer') }}</h2>
-				<Button variant="ghost" @click="showAddCustomerModal = false"><FeatherIcon name="x" /></Button>
-			</div>
-			<div class="text-xs text-gray-500">{{ __('This customer will be saved specifically for PWA Visits.') }}</div>
-
-			<div class="flex flex-col gap-1">
-				<label class="text-sm font-medium text-gray-700">{{ __('Customer Name') }} <span class="text-red-500">*</span></label>
-				<input
-					v-model="newCustomerForm.customer_name"
-					type="text"
-					class="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
-					:placeholder="__('Enter customer name')"
-				/>
-			</div>
-
-			<div class="flex flex-col gap-1">
-				<label class="text-sm font-medium text-gray-700">{{ __('Contact Person') }}</label>
-				<input
-					v-model="newCustomerForm.contact_person"
-					type="text"
-					class="w-full border border-gray-300 rounded px-3 py-2 text-sm"
-					:placeholder="__('Contact person')"
-				/>
-			</div>
-
-			<div class="flex flex-col gap-1">
-				<label class="text-sm font-medium text-gray-700">{{ __('Mobile No') }}</label>
-				<input
-					v-model="newCustomerForm.mobile_no"
-					type="tel"
-					class="w-full border border-gray-300 rounded px-3 py-2 text-sm"
-					:placeholder="__('Mobile number')"
-				/>
-			</div>
-
-			<div class="flex flex-col gap-1">
-				<label class="text-sm font-medium text-gray-700">{{ __('Email') }}</label>
-				<input
-					v-model="newCustomerForm.email"
-					type="email"
-					class="w-full border border-gray-300 rounded px-3 py-2 text-sm"
-					:placeholder="__('Email address')"
-				/>
-			</div>
-
-			<div class="flex flex-col gap-1">
-				<label class="text-sm font-medium text-gray-700">{{ __('Address') }}</label>
-				<textarea
-					v-model="newCustomerForm.address"
-					class="w-full border border-gray-300 rounded px-3 py-2 text-sm"
-					rows="2"
-					:placeholder="__('Customer address')"
-				></textarea>
-			</div>
-
-			<div class="flex gap-2 mt-2">
-				<Button variant="subtle" class="w-1/2 py-3" @click="showAddCustomerModal = false">{{ __('Cancel') }}</Button>
-				<Button variant="solid" class="w-1/2 py-3" :loading="savingCustomer" @click="saveCustomer">{{ __('Save Customer') }}</Button>
-			</div>
-		</div>
-	</ion-modal>
-
-	<!-- Visit Details Modal -->
-	<ion-modal :is-open="Boolean(selectedVisit)" @didDismiss="selectedVisit = null">
-		<div v-if="selectedVisit" class="p-5 flex flex-col gap-4 h-full bg-white overflow-y-auto">
-			<div class="flex justify-between items-center">
-				<h2 class="text-xl font-bold">{{ selectedVisit.customer_name || selectedVisit.customer || selectedVisit.new_customer }}</h2>
-				<Button variant="ghost" @click="selectedVisit = null"><FeatherIcon name="x" /></Button>
-			</div>
-			<VisitDetails :visit="selectedVisit" :formatTime="formatTime" />
-		</div>
-	</ion-modal>
 </template>
 
 <script setup>

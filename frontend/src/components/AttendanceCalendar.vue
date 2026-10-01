@@ -81,6 +81,7 @@ const summaryStatuses = ["Present", "Half Day", "Absent", "On Leave"]
 
 const summary = computed(() => {
 	const summary = {}
+	if (!calendarEvents.data) return summary
 
 	for (const status of Object.values(calendarEvents.data)) {
 		let updatedStatus = status === "Work From Home" ? "Present" : status
@@ -102,6 +103,7 @@ watch(
 )
 
 const getEventOnDate = (date) => {
+	if (!calendarEvents.data) return null
 	return calendarEvents.data[firstOfMonth.value.date(date).format("YYYY-MM-DD")]
 }
 
