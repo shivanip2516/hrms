@@ -35,7 +35,11 @@
 			</div>
 
 			<!-- Add Visit Modal -->
-			<ion-modal :is-open="showAddModal" @didDismiss="showAddModal = false">
+			<ion-modal
+				class="ion-disable-focus-trap"
+				:is-open="showAddModal"
+				@didDismiss="showAddModal = false"
+			>
 				<div class="p-5 flex flex-col gap-4 overflow-y-auto h-full bg-white">
 					<div class="flex justify-between items-center">
 						<h2 class="text-xl font-bold">{{ __('Add Visit') }}</h2>
