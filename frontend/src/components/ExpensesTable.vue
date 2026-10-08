@@ -1,7 +1,7 @@
 <template>
 	<!-- Header -->
 	<div class="flex flex-row justify-between items-center mt-2">
-		<h2 class="text-base font-semibold text-gray-800">{{ __("Expenses") }} </h2>
+		<h2 class="text-base font-semibold text-gray-800">{{ __("Expenses") }}</h2>
 		<div class="flex flex-row gap-3 items-center">
 			<span class="text-base font-semibold text-gray-800">
 				{{ formatCurrency(expenseClaim.total_claimed_amount, expenseClaim.currency) }}
@@ -36,17 +36,14 @@
 								{{ __(item.expense_type) }}
 							</div>
 							<div class="text-xs font-normal text-gray-500">
-								<span>
-									{{
-										__("{0}: {1}", [
-											__("Sanctioned"),
-											formatCurrency(item.sanctioned_amount || 0, expenseClaim.currency),
-										])
-									}}
-								</span>
-								<span class="whitespace-pre"> &middot; </span>
 								<span class="whitespace-nowrap" v-if="item.expense_date">
 									{{ dayjs(item.expense_date).format("D MMM") }}
+								</span>
+								<span v-if="item.description && item.expense_date" class="whitespace-pre">
+									&middot;
+								</span>
+								<span v-if="item.description">
+									{{ item.description }}
 								</span>
 							</div>
 						</div>
@@ -66,9 +63,7 @@
 	<CustomIonModal :isOpen="isModalOpen" @didDismiss="resetSelectedItem()">
 		<template #actionSheet>
 			<!-- Add Expense Action Sheet -->
-			<div
-				class="bg-white w-full flex flex-col items-center justify-center pb-5"
-			>
+			<div class="bg-white w-full flex flex-col items-center justify-center pb-5">
 				<div class="w-full pt-8 pb-5 border-b text-center">
 					<span class="text-gray-900 font-bold text-lg">
 						{{ modalTitle }}
@@ -76,9 +71,36 @@
 				</div>
 				<div class="w-full flex flex-col items-center justify-center gap-5 p-4 max-h-[80vh]">
 					<div class="flex flex-col w-full space-y-4 overflow-y-auto px-0.5">
+						<div
+							v-if="editingIdx === null && expenseClaim.expenses?.length"
+							class="flex flex-col rounded border bg-gray-50"
+						>
+							<div
+								v-for="(item, idx) in expenseClaim.expenses"
+								:key="idx"
+								class="flex items-center justify-between gap-3 border-b px-3 py-2 last:border-b-0"
+							>
+								<div class="min-w-0">
+									<div class="text-sm font-medium text-gray-800">
+										{{ __("Expense {0}", [idx + 1]) }}
+										<span class="whitespace-pre"> &middot; </span>
+										{{ __(item.expense_type) }}
+									</div>
+									<div class="truncate text-xs text-gray-500">
+										{{
+											item.description ||
+											(item.expense_date ? dayjs(item.expense_date).format("D MMM") : "")
+										}}
+									</div>
+								</div>
+								<div class="shrink-0 text-sm text-gray-700">
+									{{ formatCurrency(item.amount, expenseClaim.currency) }}
+								</div>
+							</div>
+						</div>
 						<FormField
 							v-for="field in expensesTableFields.data"
-							:key="field.fieldname"
+							:key="`${rowFormKey}-${field.fieldname}`"
 							class="w-full"
 							:label="__(field.label, null, 'Expense Claim Detail')"
 							:fieldtype="field.fieldtype"
@@ -92,10 +114,7 @@
 						/>
 					</div>
 
-					<div
-						v-if="!isReadOnly"
-						class="flex w-full flex-row items-center justify-between gap-3"
-					>
+					<div v-if="!isReadOnly" class="flex w-full flex-row items-center justify-between gap-3">
 						<Button
 							v-if="editingIdx !== null"
 							class="border-red-600 text-red-600 py-5 text-sm"
@@ -109,16 +128,21 @@
 							{{ __("Delete") }}
 						</Button>
 						<Button
+							v-if="editingIdx === null && expenseClaim.expenses?.length"
+							variant="subtle"
+							class="py-5 text-sm"
+							@click="closeModal()"
+						>
+							{{ __("Done") }}
+						</Button>
+						<Button
 							variant="solid"
 							class="w-full py-5 text-sm disabled:bg-gray-700 disabled:text-white"
 							@click="updateExpenseItem()"
 							:disabled="addButtonDisabled"
 						>
 							<template #prefix>
-								<FeatherIcon
-									:name="editingIdx === null ? 'plus' : 'check'"
-									class="w-4"
-								/>
+								<FeatherIcon :name="editingIdx === null ? 'plus' : 'check'" class="w-4" />
 							</template>
 							{{ editingIdx === null ? __("Add Expense") : __("Update Expense") }}
 						</Button>
@@ -152,15 +176,12 @@ const props = defineProps({
 		default: false,
 	},
 })
-const emit = defineEmits([
-	"add-expense-item",
-	"update-expense-item",
-	"delete-expense-item",
-])
+const emit = defineEmits(["add-expense-item", "update-expense-item", "delete-expense-item"])
 const dayjs = inject("$dayjs")
 const __ = inject("$translate")
 const expenseItem = ref({})
 const editingIdx = ref(null)
+const rowFormKey = ref(0)
 
 const isModalOpen = ref(false)
 const isFirstRender = ref(false)
@@ -182,10 +203,11 @@ const deleteExpenseItem = () => {
 const updateExpenseItem = () => {
 	if (editingIdx.value === null) {
 		emit("add-expense-item", expenseItem.value)
+		prepareNextExpenseItem()
 	} else {
 		emit("update-expense-item", expenseItem.value, editingIdx.value)
+		resetSelectedItem()
 	}
-	resetSelectedItem()
 }
 
 function resetSelectedItem() {
@@ -195,22 +217,35 @@ function resetSelectedItem() {
 	editingIdx.value = null
 }
 
+function prepareNextExpenseItem() {
+	isFirstRender.value = false
+	expenseItem.value = {}
+	editingIdx.value = null
+	rowFormKey.value += 1
+}
+
+function closeModal() {
+	resetSelectedItem()
+}
+
 const expensesTableFields = createResource({
 	url: "hrms.api.get_doctype_fields",
 	params: { doctype: "Expense Claim Detail" },
 	transform(data) {
-		const excludeFields = ["description_sb", "amounts_sb", "base_amount", "base_sanctioned_amount"]
+		const excludeFields = [
+			"description_sb",
+			"amounts_sb",
+			"base_amount",
+			"sanctioned_amount",
+			"base_sanctioned_amount",
+		]
 		return data.filter((field) => !excludeFields.includes(field.fieldname))
 	},
 })
 expensesTableFields.reload()
 
 const expenseClaimRef = computed(() => props.expenseClaim)
-useCurrencyConversion(
-	expensesTableFields,
-	expenseClaimRef,
-	["amount", "sanctioned_amount"]
-)
+useCurrencyConversion(expensesTableFields, expenseClaimRef, ["amount", "sanctioned_amount"])
 
 const modalTitle = computed(() => {
 	if (props.isReadOnly) return __("Expense Item")
