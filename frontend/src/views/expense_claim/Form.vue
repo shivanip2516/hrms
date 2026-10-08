@@ -88,6 +88,7 @@ const expenseClaim = ref({
 	employee: currEmployee,
 	company: employeeCompany,
 	doctype: "Expense Claim",
+	custom_pwa_expense_claim: 1,
 })
 
 const companyCurrency = computed(() => getCompanyCurrency(expenseClaim.value.company))
@@ -462,6 +463,8 @@ function setFormReadOnly() {
 }
 
 function validateForm() {
+	expenseClaim.value.custom_pwa_expense_claim = 1
+
 	// set selected advances
 	if (!expenseClaim?.value?.advances) return
 

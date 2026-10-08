@@ -103,6 +103,46 @@
 			:disabled="isReadOnly"
 		/>
 
+		<!-- Attach -->
+		<div v-else-if="props.fieldtype === 'Attach'" class="flex flex-col gap-2">
+			<input
+				ref="fileInput"
+				type="file"
+				accept="*"
+				class="hidden"
+				:disabled="isReadOnly || isUploading"
+				@change="handleAttachmentSelect"
+			/>
+			<div class="flex items-center gap-2">
+				<button
+					type="button"
+					class="flex-1 rounded border border-gray-300 bg-white px-3 py-2 text-left text-sm text-gray-700 disabled:bg-gray-100 disabled:text-gray-500"
+					:disabled="isReadOnly || isUploading"
+					@click="fileInput?.click()"
+				>
+					{{ isUploading ? __("Uploading...") : attachmentFileName || __("Choose File") }}
+				</button>
+				<button
+					v-if="modelValue && !isReadOnly"
+					type="button"
+					class="rounded border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700"
+					:disabled="isUploading"
+					@click="clearAttachment"
+				>
+					{{ __("Clear") }}
+				</button>
+			</div>
+			<a
+				v-if="modelValue"
+				:href="modelValue"
+				target="_blank"
+				rel="noopener noreferrer"
+				class="text-sm text-blue-600"
+			>
+				{{ __("View Attachment") }}
+			</a>
+		</div>
+
 		<!-- Section Break -->
 		<div
 			v-else-if="props.fieldtype === 'Section Break'"
@@ -150,8 +190,8 @@
 </template>
 
 <script setup>
-import { Autocomplete, DateTimePicker, ErrorMessage, Input, TextEditor } from "frappe-ui"
-import { computed, onMounted, inject } from "vue"
+import { Autocomplete, DateTimePicker, ErrorMessage, Input, TextEditor, createResource, toast } from "frappe-ui"
+import { computed, onMounted, inject, ref } from "vue"
 
 import Link from "@/components/Link.vue"
 
@@ -183,6 +223,22 @@ const props = defineProps({
 
 const emit = defineEmits(["change", "update:modelValue"])
 const dayjs = inject("$dayjs")
+const fileInput = ref(null)
+const isUploading = ref(false)
+const selectedAttachmentName = ref("")
+
+const attachmentUploader = createResource({
+	url: "dekure_custom.api.upload_pwa_expense_row_attachment",
+	onError(error) {
+		toast({
+			title: __("Error"),
+			text: error.messages?.[0] || __("File upload failed."),
+			icon: "alert-circle",
+			position: "bottom-center",
+			iconClasses: "text-red-500",
+		})
+	},
+})
 
 const showField = computed(() => {
 	if (props.readOnly && !isLayoutField.value && !props.modelValue) return false
@@ -215,6 +271,54 @@ const selectionList = computed(() => {
 
 	return []
 })
+
+const attachmentFileName = computed(() => {
+	if (selectedAttachmentName.value) return selectedAttachmentName.value
+	if (!props.modelValue) return ""
+
+	return decodeURIComponent(String(props.modelValue).split("/").pop() || props.modelValue)
+})
+
+function handleAttachmentSelect(event) {
+	const file = event.target.files?.[0]
+	if (!file) return
+
+	const reader = new FileReader()
+	isUploading.value = true
+
+	reader.onload = async () => {
+		try {
+			const content = reader.result.toString().split(",")[1]
+			const fileDoc = await attachmentUploader.submit({
+				content,
+				filename: file.name,
+			})
+			selectedAttachmentName.value = fileDoc.file_name || file.name
+			emit("update:modelValue", fileDoc.file_url)
+		} finally {
+			isUploading.value = false
+			if (fileInput.value) fileInput.value.value = ""
+		}
+	}
+
+	reader.onerror = () => {
+		isUploading.value = false
+		toast({
+			title: __("Error"),
+			text: __("File upload failed."),
+			icon: "alert-circle",
+			position: "bottom-center",
+			iconClasses: "text-red-500",
+		})
+	}
+
+	reader.readAsDataURL(file)
+}
+
+function clearAttachment() {
+	selectedAttachmentName.value = ""
+	emit("update:modelValue", "")
+}
 
 function setDefaultValue() {
 	// set default values
