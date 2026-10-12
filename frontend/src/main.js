@@ -19,7 +19,6 @@ import { IonicVue } from "@ionic/vue"
 import { session } from "@/data/session"
 import { userResource } from "@/data/user"
 import { employeeResource } from "@/data/employee"
-import { unreadNotificationsCount } from "@/data/notifications"
 
 import dayjs from "@/utils/dayjs"
 import getIonicConfig from "@/utils/ionicConfig"
@@ -60,12 +59,13 @@ app.provide("$employee", employeeResource)
 app.provide("$socket", socket)
 app.provide("$dayjs", dayjs)
 
+let appMounted = false
+
 const refreshCurrentPage = () => {
-	if (!session.isLoggedIn) return
-	userResource.reload()
-	employeeResource.reload()
-	unreadNotificationsCount.reload()
-	triggerRefresh(router.currentRoute.value?.name)
+	if (!appMounted || !session.isLoggedIn) return
+	Promise.resolve(userResource.reload()).catch(console.error)
+	Promise.resolve(employeeResource.reload()).catch(console.error)
+	Promise.resolve(triggerRefresh(router.currentRoute.value?.name)).catch(console.error)
 }
 
 let resumeRefreshTimer = null
@@ -124,6 +124,7 @@ router.isReady().then(async () => {
 	await translationsPlugin.isReady();
 	registerServiceWorker()
 	app.mount("#app")
+	appMounted = true
 })
 
 router.beforeEach(async (to, _, next) => {
