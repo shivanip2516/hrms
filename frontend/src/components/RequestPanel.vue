@@ -14,7 +14,8 @@
 </template>
 
 <script setup>
-import { ref, inject, onMounted, computed, markRaw } from "vue"
+import { ref, inject, onMounted, computed, markRaw, onBeforeUnmount } from "vue"
+import { useRoute } from "vue-router"
 
 import TabButtons from "@/components/TabButtons.vue"
 import RequestList from "@/components/RequestList.vue"
@@ -29,9 +30,11 @@ import LeaveRequestItem from "@/components/LeaveRequestItem.vue"
 import ShiftRequestItem from "@/components/ShiftRequestItem.vue"
 
 import { useListUpdate } from "@/composables/realtime"
+import { registerRefreshHandler } from "@/utils/refresh"
 
 const activeTab = ref("My Requests")
 const socket = inject("$socket")
+const route = useRoute()
 
 const TAB_BUTTONS = ["My Requests", "Team Requests"] // __("My Requests"), __("Team Requests")
 
@@ -72,9 +75,26 @@ function getSortedRequests(list) {
 }
 
 onMounted(() => {
+	unregisterRefreshHandler = registerRefreshHandler(route.name, refreshRequests)
 	useListUpdate(socket, "Leave Application", () => teamLeaves.reload())
 	useListUpdate(socket, "Expense Claim", () => teamClaims.reload())
 	useListUpdate(socket, "Shift Request", () => teamShiftRequests.reload())
 	useListUpdate(socket, "Attendance Request", () => teamAttendanceRequests.reload())
+})
+
+function refreshRequests() {
+	myLeaves.reload()
+	myClaims.reload()
+	myShiftRequests.reload()
+	myAttendanceRequests.reload()
+	teamLeaves.reload()
+	teamClaims.reload()
+	teamShiftRequests.reload()
+	teamAttendanceRequests.reload()
+}
+
+let unregisterRefreshHandler = () => {}
+onBeforeUnmount(() => {
+	unregisterRefreshHandler()
 })
 </script>

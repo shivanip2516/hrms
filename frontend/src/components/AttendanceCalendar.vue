@@ -60,11 +60,14 @@
 </template>
 
 <script setup>
-import { computed, inject, ref, watch } from "vue"
+import { computed, inject, onBeforeUnmount, onMounted, ref, watch } from "vue"
 import { createResource } from "frappe-ui"
+import { useRoute } from "vue-router"
+import { registerRefreshHandler } from "@/utils/refresh"
 
 const dayjs = inject("$dayjs")
 const __ = inject("$translate")
+const route = useRoute()
 const firstOfMonth = ref(dayjs().date(1).startOf("D"))
 
 const colorMap = {
@@ -130,5 +133,14 @@ const calendarEvents = createResource({
 			to_date: firstOfMonth.value.endOf("M").format("YYYY-MM-DD"),
 		}
 	},
+})
+
+let unregisterRefreshHandler = () => {}
+onMounted(() => {
+	unregisterRefreshHandler = registerRefreshHandler(route.name, () => calendarEvents.reload())
+})
+
+onBeforeUnmount(() => {
+	unregisterRefreshHandler()
 })
 </script>

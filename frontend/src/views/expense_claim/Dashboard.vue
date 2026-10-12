@@ -50,7 +50,8 @@
 </template>
 
 <script setup>
-import { markRaw } from "vue"
+import { markRaw, onBeforeUnmount, onMounted } from "vue"
+import { useRoute } from "vue-router"
 
 import BaseLayout from "@/components/BaseLayout.vue"
 import ExpenseClaimSummary from "@/components/ExpenseClaimSummary.vue"
@@ -60,4 +61,23 @@ import EmployeeAdvanceBalance from "@/components/EmployeeAdvanceBalance.vue"
 
 import { myClaims } from "@/data/claims"
 import { advanceBalance } from "@/data/advances"
+import { expenseClaimSummary } from "@/data/claims"
+import { registerRefreshHandler } from "@/utils/refresh"
+
+const route = useRoute()
+
+function refreshDashboard() {
+	myClaims.reload()
+	expenseClaimSummary.reload()
+	advanceBalance.reload()
+}
+
+let unregisterRefreshHandler = () => {}
+onMounted(() => {
+	unregisterRefreshHandler = registerRefreshHandler(route.name, refreshDashboard)
+})
+
+onBeforeUnmount(() => {
+	unregisterRefreshHandler()
+})
 </script>

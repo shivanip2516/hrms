@@ -51,8 +51,9 @@
 </template>
 
 <script setup>
-import { computed, inject, markRaw } from "vue"
+import { computed, inject, markRaw, onBeforeUnmount, onMounted } from "vue"
 import { createResource } from "frappe-ui"
+import { useRoute } from "vue-router"
 
 import BaseLayout from "@/components/BaseLayout.vue"
 import AttendanceRequestItem from "@/components/AttendanceRequestItem.vue"
@@ -68,8 +69,10 @@ import {
 	myAttendanceRequests,
 	myShiftRequests,
 } from "@/data/attendance"
+import { registerRefreshHandler } from "@/utils/refresh"
 
 const dayjs = inject("$dayjs")
+const route = useRoute()
 
 const shifts = createResource({
 	url: "hrms.api.get_shifts",
@@ -92,5 +95,20 @@ const upcomingShifts = computed(() => {
 
 	// show only 5 upcoming shifts
 	return filteredShifts?.slice(0, 5)
+})
+
+function refreshDashboard() {
+	shifts.reload()
+	myAttendanceRequests.reload()
+	myShiftRequests.reload()
+}
+
+let unregisterRefreshHandler = () => {}
+onMounted(() => {
+	unregisterRefreshHandler = registerRefreshHandler(route.name, refreshDashboard)
+})
+
+onBeforeUnmount(() => {
+	unregisterRefreshHandler()
 })
 </script>

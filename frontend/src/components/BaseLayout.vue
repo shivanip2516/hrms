@@ -10,6 +10,17 @@
 							</h2>
 						</div>
 						<div class="flex flex-row items-center gap-3 ml-auto">
+							<Button
+								variant="ghost"
+								class="!p-1 hover:bg-white"
+								:loading="refreshState.loading"
+								:disabled="refreshState.loading"
+								@click="refreshPage"
+							>
+								<template #prefix>
+									<FeatherIcon name="refresh-cw" class="h-5 w-5" />
+								</template>
+							</Button>
 							<router-link
 								:to="{ name: 'Notifications' }"
 								v-slot="{ navigate }"
@@ -53,10 +64,13 @@ import { IonHeader, IonContent, IonPage } from "@ionic/vue"
 import { FeatherIcon, Avatar } from "frappe-ui"
 
 import { unreadNotificationsCount } from "@/data/notifications"
+import { refreshState, triggerRefresh } from "@/utils/refresh"
 
 import { inject } from "vue"
+import { useRoute } from "vue-router"
 
 const user = inject("$user")
+const route = useRoute()
 
 const props = defineProps({
 	pageTitle: {
@@ -65,4 +79,8 @@ const props = defineProps({
 		default: "",
 	},
 })
+
+function refreshPage() {
+	triggerRefresh(route.name, { force: true })
+}
 </script>

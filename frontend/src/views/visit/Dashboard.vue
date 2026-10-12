@@ -218,14 +218,17 @@
 </template>
 
 <script setup>
-import { inject, onMounted, ref, computed } from "vue"
+import { inject, onBeforeUnmount, onMounted, ref, computed } from "vue"
+import { useRoute } from "vue-router"
 import { IonModal } from "@ionic/vue"
 import { Badge, FeatherIcon, Autocomplete, toast } from "frappe-ui"
 import BaseLayout from "@/components/BaseLayout.vue"
 import Link from "@/components/Link.vue"
+import { registerRefreshHandler } from "@/utils/refresh"
 
 const __ = inject("$translate")
 const dayjs = inject("$dayjs")
+const route = useRoute()
 const visits = ref([])
 const loading = ref(false)
 const saving = ref(false)
@@ -540,5 +543,13 @@ const VisitDetails = {
 	`,
 }
 
-onMounted(loadVisits)
+let unregisterRefreshHandler = () => {}
+onMounted(() => {
+	loadVisits()
+	unregisterRefreshHandler = registerRefreshHandler(route.name, loadVisits)
+})
+
+onBeforeUnmount(() => {
+	unregisterRefreshHandler()
+})
 </script>

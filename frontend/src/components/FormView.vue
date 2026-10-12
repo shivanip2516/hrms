@@ -315,8 +315,8 @@
 </template>
 
 <script setup>
-import { computed, inject, nextTick, onMounted, ref, watch } from "vue"
-import { useRouter } from "vue-router"
+import { computed, inject, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue"
+import { useRoute, useRouter } from "vue-router"
 import {
 	ErrorMessage,
 	Badge,
@@ -338,6 +338,7 @@ import useWorkflow from "@/composables/workflow"
 import { getCompanyCurrency } from "@/data/currencies"
 import { formatCurrency } from "@/utils/formatters"
 import { useDownloadPDF } from "@/utils/commonUtils"
+import { registerRefreshHandler, triggerRefresh } from "@/utils/refresh"
 
 const props = defineProps({
 	doctype: {
@@ -388,6 +389,7 @@ const props = defineProps({
 })
 const emit = defineEmits(["validateForm", "update:modelValue", "formReloaded"])
 const router = useRouter()
+const route = useRoute()
 const { downloadPDF } = useDownloadPDF()
 
 const __ = inject("$translate")
@@ -531,11 +533,13 @@ const docList = createListResource({
 				iconClasses: "text-green-500",
 			})
 			await uploadAllAttachments(data.doctype, data.name, fileAttachments.value)
+			triggerRefresh(route.name, { force: true })
 
 			router.replace({
 				name: `${props.doctype.replace(/\s+/g, "")}DetailView`,
 				params: { id: data.name },
 			})
+			triggerRefresh(route.name, { force: true })
 		},
 		onError() {
 			toast({
@@ -577,6 +581,7 @@ const documentResource = createDocumentResource({
 	delete: {
 		onSuccess() {
 			router.back()
+			triggerRefresh(route.name, { force: true })
 			toast({
 				title: __("Success"),
 				text: __("{0} deleted successfully!", [__(props.doctype)]),
@@ -677,6 +682,7 @@ async function handleDocUpdate(action) {
 		await documentResource.setValue.submit(params)
 		await documentResource.get.promise
 		resetForm()
+		triggerRefresh(route.name, { force: true })
 	}
 
 	if (action === "submit") showSubmitDialog.value = false
@@ -782,6 +788,14 @@ onMounted(async () => {
 		workflow.value = useWorkflow(props.doctype)
 
 		isFormDirty.value = false
+		unregisterRefreshHandler = registerRefreshHandler(route.name, () => {
+			if (!isFormDirty.value) return reloadDoc()
+		})
 	}
+})
+
+let unregisterRefreshHandler = () => {}
+onBeforeUnmount(() => {
+	unregisterRefreshHandler()
 })
 </script>

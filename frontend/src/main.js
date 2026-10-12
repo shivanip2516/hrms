@@ -19,9 +19,11 @@ import { IonicVue } from "@ionic/vue"
 import { session } from "@/data/session"
 import { userResource } from "@/data/user"
 import { employeeResource } from "@/data/employee"
+import { unreadNotificationsCount } from "@/data/notifications"
 
 import dayjs from "@/utils/dayjs"
 import getIonicConfig from "@/utils/ionicConfig"
+import { triggerRefresh } from "@/utils/refresh"
 
 import FrappePushNotification from "../public/frappe-push-notification"
 
@@ -57,6 +59,20 @@ app.provide("$user", userResource)
 app.provide("$employee", employeeResource)
 app.provide("$socket", socket)
 app.provide("$dayjs", dayjs)
+
+const refreshCurrentPage = () => {
+	if (!session.isLoggedIn) return
+	userResource.reload()
+	employeeResource.reload()
+	unreadNotificationsCount.reload()
+	triggerRefresh(router.currentRoute.value?.name)
+}
+
+let resumeRefreshTimer = null
+const scheduleResumeRefresh = () => {
+	clearTimeout(resumeRefreshTimer)
+	resumeRefreshTimer = setTimeout(refreshCurrentPage, 300)
+}
 
 const registerServiceWorker = async () => {
 	window.frappePushNotification = new FrappePushNotification("hrms")
@@ -146,3 +162,15 @@ router.beforeEach(async (to, _, next) => {
 		next()
 	}
 })
+
+router.afterEach((to) => {
+	setTimeout(() => triggerRefresh(to.name), 0)
+})
+
+document.addEventListener("visibilitychange", () => {
+	if (document.visibilityState === "visible") {
+		scheduleResumeRefresh()
+	}
+})
+window.addEventListener("focus", scheduleResumeRefresh)
+window.addEventListener("pageshow", scheduleResumeRefresh)

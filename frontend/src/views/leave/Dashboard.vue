@@ -48,7 +48,8 @@
 </template>
 
 <script setup>
-import { markRaw } from "vue"
+import { markRaw, onBeforeUnmount, onMounted } from "vue"
+import { useRoute } from "vue-router"
 
 import BaseLayout from "@/components/BaseLayout.vue"
 import LeaveBalance from "@/components/LeaveBalance.vue"
@@ -56,5 +57,22 @@ import RequestList from "@/components/RequestList.vue"
 import LeaveRequestItem from "@/components/LeaveRequestItem.vue"
 import Holidays from "@/components/Holidays.vue"
 
-import { myLeaves } from "@/data/leaves"
+import { leaveBalance, myLeaves } from "@/data/leaves"
+import { registerRefreshHandler } from "@/utils/refresh"
+
+const route = useRoute()
+
+function refreshDashboard() {
+	myLeaves.reload()
+	leaveBalance.reload()
+}
+
+let unregisterRefreshHandler = () => {}
+onMounted(() => {
+	unregisterRefreshHandler = registerRefreshHandler(route.name, refreshDashboard)
+})
+
+onBeforeUnmount(() => {
+	unregisterRefreshHandler()
+})
 </script>

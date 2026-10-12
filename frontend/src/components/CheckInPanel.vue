@@ -146,15 +146,18 @@
 <script setup>
 import { createListResource, toast, FeatherIcon } from "frappe-ui"
 import { computed, inject, ref, onMounted, onBeforeUnmount } from "vue"
+import { useRoute } from "vue-router"
 import { IonModal, modalController } from "@ionic/vue"
 
 import { formatTimestamp } from "@/utils/formatters"
 import { settings } from "@/data/settings"
 import SelfieCapture from "@/components/SelfieCapture.vue"
+import { registerRefreshHandler, triggerRefresh } from "@/utils/refresh"
 
 const DOCTYPE = "Employee Checkin"
 
 const socket = inject("$socket")
+const route = useRoute()
 const employee = inject("$employee")
 const dayjs = inject("$dayjs")
 const __ = inject("$translate")
@@ -331,6 +334,7 @@ async function submitLogWithSelfie(logType, fileUrl) {
 				})
 				checkins.reload()
 				loadAttendanceStatus()
+				triggerRefresh(route.name, { force: true })
 			},
 			onError(error) {
 				let messages = error.messages || []
@@ -437,6 +441,7 @@ async function submitMissedCheckoutRequest() {
 		})
 		closeMissedCheckoutDialog()
 		await loadAttendanceStatus()
+		triggerRefresh(route.name, { force: true })
 	} catch (error) {
 		missedCheckoutLocationStatus.value = error.message
 		toast({
@@ -503,6 +508,10 @@ function getServerError(payload) {
 
 onMounted(() => {
 	loadAttendanceStatus()
+	unregisterRefreshHandler = registerRefreshHandler(route.name, () => {
+		checkins.reload()
+		return loadAttendanceStatus()
+	})
 	socket.emit("doctype_subscribe", DOCTYPE)
 	socket.on("list_update", (data) => {
 		if (data.doctype == DOCTYPE) {
@@ -512,7 +521,9 @@ onMounted(() => {
 	})
 })
 
+let unregisterRefreshHandler = () => {}
 onBeforeUnmount(() => {
+	unregisterRefreshHandler()
 	socket.emit("doctype_unsubscribe", DOCTYPE)
 	socket.off("list_update")
 })

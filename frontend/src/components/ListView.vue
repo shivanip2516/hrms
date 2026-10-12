@@ -13,6 +13,13 @@
 
 				<div class="flex flex-row gap-2">
 					<Button
+						icon="refresh-cw"
+						variant="subtle"
+						:loading="refreshState.loading"
+						:disabled="refreshState.loading"
+						@click="manualRefresh"
+					/>
+					<Button
 						id="show-filter-modal"
 						icon="filter"
 						variant="subtle"
@@ -130,8 +137,8 @@
 </template>
 
 <script setup>
-import { useRouter } from "vue-router"
-import { inject, ref, markRaw, watch, computed, reactive, onMounted } from "vue"
+import { useRoute, useRouter } from "vue-router"
+import { inject, ref, markRaw, watch, computed, reactive, onMounted, onBeforeUnmount } from "vue"
 import {
 	modalController,
 	IonHeader,
@@ -156,6 +163,7 @@ import ListFiltersActionSheet from "@/components/ListFiltersActionSheet.vue"
 import CustomIonModal from "@/components/CustomIonModal.vue"
 import RequestActionSheet from "@/components/RequestActionSheet.vue"
 import { EMPLOYEE_CHECKIN_FIELDS } from "@/data/config/requestSummaryFields"
+import { refreshState, registerRefreshHandler, triggerRefresh } from "@/utils/refresh"
 
 import useWorkflow from "@/composables/workflow"
 import { useListUpdate } from "@/composables/realtime"
@@ -202,6 +210,7 @@ const listItemComponent = {
 }
 
 const router = useRouter()
+const route = useRoute()
 const dayjs = inject("$dayjs")
 const socket = inject("$socket")
 const employee = inject("$employee")
@@ -359,7 +368,7 @@ function fetchDocumentList(start = 0) {
 
 	if (appliedFilters.value) filters.push(...appliedFilters.value)
 
-	if (workflowStateField.value) {
+	if (workflowStateField.value && !listOptions.value.fields.includes(workflowStateField.value)) {
 		listOptions.value.fields.push(workflowStateField.value)
 	}
 
@@ -389,6 +398,10 @@ const handleRefresh = (event) => {
 	}, 500)
 }
 
+const manualRefresh = () => {
+	triggerRefresh(route.name, { force: true })
+}
+
 watch(
 	() => activeTab.value,
 	(_value) => {
@@ -401,7 +414,13 @@ onMounted(async () => {
 	await workflow.workflowDoc.promise
 	workflowStateField.value = workflow.getWorkflowStateField()
 	fetchDocumentList()
+	unregisterRefreshHandler = registerRefreshHandler(route.name, () => fetchDocumentList())
 
 	useListUpdate(socket, props.doctype, () => fetchDocumentList())
+})
+
+let unregisterRefreshHandler = () => {}
+onBeforeUnmount(() => {
+	unregisterRefreshHandler()
 })
 </script>
