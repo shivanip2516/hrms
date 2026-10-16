@@ -11,6 +11,7 @@
 				:doc="link"
 				:workflowStateField="link.workflow_state_field"
 				:isTeamRequest="props.teamRequests"
+				v-bind="props.componentProps"
 			/>
 		</div>
 
@@ -61,6 +62,10 @@ const __ = inject("$translate")
 const props = defineProps({
 	component: {
 		type: Object,
+	},
+	componentProps: {
+		type: Object,
+		default: () => ({}),
 	},
 	items: {
 		type: Array,

@@ -9,7 +9,16 @@
 				{{ __("Checked in at {0}", [formatTimestamp(attendanceStatus.today_checkin_time)]) }}
 			</div>
 			<div class="font-medium text-sm text-gray-500 mt-1.5" v-else-if="attendanceStatus?.attendance_completed">
-				{{ __("Attendance completed for today") }}
+				<span v-if="attendanceStatus?.attendance_processing_status === 'Completed'">
+					{{ __("Attendance marked: {0}", [attendanceStatus.attendance?.status]) }}
+				</span>
+				<span v-else-if="attendanceStatus?.attendance_processing_status === 'Existing Attendance'">
+					{{ __("Attendance already recorded") }}
+				</span>
+				<span v-else-if="attendanceStatus?.attendance_processing_status === 'Not Applicable'">
+					{{ attendanceStatus.attendance_processing_message }}
+				</span>
+				<span v-else>{{ __("Check-out saved. Attendance processing is pending.") }}</span>
 			</div>
 			<div class="font-medium text-sm text-gray-500 mt-1.5" v-else-if="lastLog">
 				<span>{{ __("Last {0} was at {1}", [__(lastLogType), formatTimestamp(lastLog.time)]) }}</span>
@@ -519,6 +528,10 @@ onMounted(() => {
 			loadAttendanceStatus()
 		}
 	})
+	socket.on("dekure_attendance_processed", () => {
+		checkins.reload()
+		loadAttendanceStatus()
+	})
 })
 
 let unregisterRefreshHandler = () => {}
@@ -526,5 +539,6 @@ onBeforeUnmount(() => {
 	unregisterRefreshHandler()
 	socket.emit("doctype_unsubscribe", DOCTYPE)
 	socket.off("list_update")
+	socket.off("dekure_attendance_processed")
 })
 </script>

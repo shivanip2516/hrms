@@ -24,6 +24,7 @@
 					<RequestList
 						:component="markRaw(ExpenseClaimItem)"
 						:items="myClaims.data"
+						:componentProps="{ showExpenseDates: true }"
 						:addListButton="true"
 						listButtonRoute="ExpenseClaimListView"
 					/>

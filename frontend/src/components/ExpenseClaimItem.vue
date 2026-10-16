@@ -11,8 +11,16 @@
 					{{ claimTitle }}
 				</div>
 				<div class="text-xs font-normal text-gray-500">
-					<span>{{ claimDates }}</span>
-					<span class="whitespace-pre"> &middot; </span>
+					<template v-if="props.showExpenseDates">
+						<span>{{ __("Posting: {0}", [postingDate]) }}</span>
+						<span class="whitespace-pre"> &middot; </span>
+						<span>{{ __("Expense: {0}", [expenseDates]) }}</span>
+						<span class="whitespace-pre"> &middot; </span>
+					</template>
+					<template v-else>
+						<span>{{ claimDates }}</span>
+						<span class="whitespace-pre"> &middot; </span>
+					</template>
 					<span class="whitespace-nowrap">
 						{{ formatCurrency(props.doc.total_claimed_amount, props.doc.currency) }}
 					</span>
@@ -48,6 +56,10 @@ const props = defineProps({
 	workflowStateField: {
 		type: String,
 		required: false,
+	},
+	showExpenseDates: {
+		type: Boolean,
+		default: false,
 	},
 })
 
@@ -96,6 +108,22 @@ const claimDates = computed(() => {
 			"D MMM"
 		)}`
 	}
+})
+
+const postingDate = computed(() => {
+	return props.doc.posting_date ? dayjs(props.doc.posting_date).format("D MMM") : "-"
+})
+
+const expenseDates = computed(() => {
+	if (!props.doc.expense_date_from) return "-"
+
+	const fromDate = dayjs(props.doc.expense_date_from)
+	const toDate = dayjs(props.doc.expense_date_to || props.doc.expense_date_from)
+	if (fromDate.isSame(toDate, "day")) return fromDate.format("D MMM")
+	if (fromDate.isSame(toDate, "month") && fromDate.isSame(toDate, "year")) {
+		return `${fromDate.format("D")}\u2013${toDate.format("D MMM")}`
+	}
+	return `${fromDate.format("D MMM")}\u2013${toDate.format("D MMM")}`
 })
 
 
