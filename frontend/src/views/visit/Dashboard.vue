@@ -2,36 +2,100 @@
 	<BaseLayout :pageTitle="__('Visits')">
 		<template #body>
 			<div class="flex flex-col gap-4 p-4 mt-3 mb-8 overflow-y-auto">
-				<Button variant="solid" class="w-full py-5 text-base" @click="openAddModal">
-					<template #prefix><FeatherIcon name="plus" class="w-4" /></template>
-					{{ __('Add Visit') }}
-				</Button>
-
-				<div class="text-lg text-gray-800 font-bold">{{ __("Today's Visits") }}</div>
-				<div v-if="loading" class="text-sm text-gray-500 text-center py-8">{{ __('Loading visits...') }}</div>
-				<div v-else-if="!visits.length" class="bg-white rounded p-6 text-sm text-gray-500 text-center">
-					{{ __('No visits planned for today.') }}
+				<div class="grid grid-cols-2 p-1 bg-gray-100 rounded-lg gap-1">
+					<button
+						type="button"
+						class="py-2 text-sm font-medium rounded-md text-center"
+						:class="activeView === 'planning' ? 'bg-white shadow-sm text-gray-900 font-semibold' : 'text-gray-600'"
+						@click="switchView('planning')"
+					>
+						{{ __('Visit Planning') }}
+					</button>
+					<button
+						type="button"
+						class="py-2 text-sm font-medium rounded-md text-center"
+						:class="activeView === 'history' ? 'bg-white shadow-sm text-gray-900 font-semibold' : 'text-gray-600'"
+						@click="switchView('history')"
+					>
+						{{ __('Visit History') }}
+					</button>
 				</div>
-				<div v-for="visit in visits" :key="visit.name" class="bg-white rounded border p-4 space-y-3">
-					<div class="cursor-pointer" @click="openDetails(visit)">
+
+				<template v-if="activeView === 'planning'">
+					<Button variant="solid" class="w-full py-5 text-base" @click="openAddModal">
+						<template #prefix><FeatherIcon name="plus" class="w-4" /></template>
+						{{ __('Add Visit') }}
+					</Button>
+
+					<div class="text-lg text-gray-800 font-bold">{{ __("Today's Visits") }}</div>
+					<div v-if="loading" class="text-sm text-gray-500 text-center py-8">{{ __('Loading visits...') }}</div>
+					<div v-else-if="!visits.length" class="bg-white rounded p-6 text-sm text-gray-500 text-center">
+						{{ __('No visits planned for today.') }}
+					</div>
+					<div v-for="visit in visits" :key="visit.name" class="bg-white rounded border p-4 space-y-3">
+						<div class="cursor-pointer" @click="openDetails(visit)">
+							<div class="flex justify-between gap-3">
+								<div class="font-semibold text-gray-900">{{ visit.customer_name || visit.customer || visit.new_customer }}</div>
+								<Badge :label="__(visit.status)" :theme="statusTheme(visit.status)" />
+							</div>
+							<div v-if="visit.visit_type" class="text-sm text-gray-600 mt-1">{{ visit.visit_type }}</div>
+							<div v-if="visit.status === 'In Progress'" class="text-sm text-gray-500 mt-2">
+								{{ __('Started: {0}', [formatTime(visit.checkin_time)]) }}
+							</div>
+							<div v-if="visit.status === 'Completed'" class="text-sm text-gray-500 mt-2">
+								{{ formatTime(visit.checkin_time) }} - {{ formatTime(visit.checkout_time) }}
+							</div>
+						</div>
+						<div v-if="visit.status === 'Planned'" class="flex gap-2">
+							<Button class="grow" variant="solid" :loading="actionName === visit.name" @click.stop="punch(visit, 'in')">{{ __('Punch In') }}</Button>
+							<Button variant="subtle" theme="red" :disabled="actionName === visit.name" @click.stop="confirmCancel(visit)">{{ __('Cancel') }}</Button>
+						</div>
+						<Button v-else-if="visit.status === 'In Progress'" class="w-full" variant="solid" :loading="actionName === visit.name" @click.stop="punch(visit, 'out')">{{ __('Punch Out') }}</Button>
+					</div>
+				</template>
+
+				<template v-else>
+					<div class="text-lg text-gray-800 font-bold">{{ __('Visit History') }}</div>
+					<div class="flex gap-2">
+						<input
+							v-model="historySearch"
+							type="search"
+							class="min-w-0 grow border border-gray-300 rounded px-3 py-2 text-sm"
+							:placeholder="__('Search visits')"
+							@keyup.enter="loadVisitHistory()"
+							@search="loadVisitHistory()"
+						/>
+						<Button variant="subtle" :title="__('Search')" @click="loadVisitHistory()">
+							<FeatherIcon name="search" class="w-4" />
+						</Button>
+					</div>
+					<select v-model="historyStatus" class="w-full border border-gray-300 rounded px-3 py-2 text-sm bg-white" @change="loadVisitHistory()">
+						<option value="">{{ __('All Statuses') }}</option>
+						<option v-for="status in visitStatuses" :key="status" :value="status">{{ __(status) }}</option>
+					</select>
+					<div v-if="historyLoading" class="text-sm text-gray-500 text-center py-8">{{ __('Loading visits...') }}</div>
+					<div v-else-if="!historyVisits.length" class="bg-white rounded p-6 text-sm text-gray-500 text-center">
+						{{ __('No visits found.') }}
+					</div>
+					<div
+						v-for="visit in historyVisits"
+						:key="visit.name"
+						class="bg-white rounded border p-4 cursor-pointer"
+						@click="openHistoryDetails(visit)"
+					>
 						<div class="flex justify-between gap-3">
-							<div class="font-semibold text-gray-900">{{ visit.customer_name || visit.customer || visit.new_customer }}</div>
+							<div class="min-w-0">
+								<div class="font-semibold text-gray-900 truncate">{{ visit.customer_name || visit.customer || visit.new_customer }}</div>
+								<div class="text-sm text-gray-500 mt-1">{{ formatDate(visit.visit_date) }}</div>
+								<div v-if="visit.visit_type" class="text-sm text-gray-600 mt-1">{{ visit.visit_type }}</div>
+							</div>
 							<Badge :label="__(visit.status)" :theme="statusTheme(visit.status)" />
 						</div>
-						<div v-if="visit.visit_type" class="text-sm text-gray-600 mt-1">{{ visit.visit_type }}</div>
-						<div v-if="visit.status === 'In Progress'" class="text-sm text-gray-500 mt-2">
-							{{ __('Started: {0}', [formatTime(visit.checkin_time)]) }}
-						</div>
-						<div v-if="visit.status === 'Completed'" class="text-sm text-gray-500 mt-2">
-							{{ formatTime(visit.checkin_time) }} - {{ formatTime(visit.checkout_time) }}
-						</div>
 					</div>
-					<div v-if="visit.status === 'Planned'" class="flex gap-2">
-						<Button class="grow" variant="solid" :loading="actionName === visit.name" @click.stop="punch(visit, 'in')">{{ __('Punch In') }}</Button>
-						<Button variant="subtle" theme="red" :disabled="actionName === visit.name" @click.stop="confirmCancel(visit)">{{ __('Cancel') }}</Button>
-					</div>
-					<Button v-else-if="visit.status === 'In Progress'" class="w-full" variant="solid" :loading="actionName === visit.name" @click.stop="punch(visit, 'out')">{{ __('Punch Out') }}</Button>
-				</div>
+					<Button v-if="hasMoreHistory" variant="subtle" class="w-full" :loading="historyLoadingMore" @click="loadMoreHistory">
+						{{ __('Load More') }}
+					</Button>
+				</template>
 			</div>
 
 			<!-- Add Visit Modal -->
@@ -204,13 +268,92 @@
 			</ion-modal>
 
 			<!-- Visit Details Modal -->
-			<ion-modal :is-open="Boolean(selectedVisit)" @didDismiss="selectedVisit = null">
-				<div v-if="selectedVisit" class="p-5 flex flex-col gap-4 h-full bg-white overflow-y-auto">
-					<div class="flex justify-between items-center">
-						<h2 class="text-xl font-bold">{{ selectedVisit.customer_name || selectedVisit.customer || selectedVisit.new_customer }}</h2>
-						<Button variant="ghost" @click="selectedVisit = null"><FeatherIcon name="x" /></Button>
+			<ion-modal :is-open="Boolean(selectedVisit)" @didDismiss="closeVisitDetails">
+				<div v-if="selectedVisit" class="p-5 flex flex-col gap-4 h-full min-w-0 bg-white overflow-y-auto">
+					<div class="flex justify-between items-start gap-3">
+						<div class="min-w-0">
+							<h2 class="text-xl font-bold break-words">{{ selectedVisit.customer_name || selectedVisit.customer || selectedVisit.new_customer }}</h2>
+							<div class="text-sm text-gray-500 mt-1">{{ selectedVisit.name }}</div>
+						</div>
+						<Button variant="ghost" :title="__('Close')" @click="closeVisitDetails"><FeatherIcon name="x" /></Button>
 					</div>
-					<VisitDetails :visit="selectedVisit" :formatTime="formatTime" />
+
+					<div v-if="visitDetailLoading" class="text-sm text-gray-500 text-center py-8">
+						{{ __('Loading visit details...') }}
+					</div>
+					<div v-else-if="visitDetailError" class="text-sm text-red-600 bg-red-50 border border-red-100 rounded p-3">
+						{{ visitDetailError }}
+					</div>
+					<template v-else>
+						<section class="space-y-3">
+							<div class="text-sm font-semibold text-gray-800">{{ __('Visit Information') }}</div>
+							<div class="grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
+								<div class="min-w-0"><div class="text-gray-500">{{ __('Visit ID') }}</div><div class="break-words">{{ selectedVisit.name }}</div></div>
+								<div><div class="text-gray-500">{{ __('Status') }}</div><Badge class="mt-1" :label="__(selectedVisit.status)" :theme="statusTheme(selectedVisit.status)" /></div>
+								<div><div class="text-gray-500">{{ __('Visit Date') }}</div><div>{{ formatDate(selectedVisit.visit_date) }}</div></div>
+								<div v-if="selectedVisit.customer_type"><div class="text-gray-500">{{ __('Customer Type') }}</div><div>{{ __(selectedVisit.customer_type) }}</div></div>
+								<div class="col-span-2 min-w-0"><div class="text-gray-500">{{ __('Customer / Company') }}</div><div class="break-words">{{ selectedVisit.customer_name || selectedVisit.customer || selectedVisit.new_customer }}</div></div>
+								<div v-if="selectedVisit.employee_name || selectedVisit.employee" class="col-span-2 min-w-0"><div class="text-gray-500">{{ __('Responsible Employee') }}</div><div class="break-words">{{ selectedVisit.employee_name || selectedVisit.employee }}</div></div>
+								<div v-if="selectedVisit.contact_person" class="col-span-2 min-w-0"><div class="text-gray-500">{{ __('Contact Person') }}</div><div class="break-words">{{ selectedVisit.contact_person }}</div></div>
+							</div>
+						</section>
+
+						<section v-if="hasAnyVisitValue(['visit_type', 'visit_purpose'])" class="space-y-3 border-t pt-4">
+							<div class="text-sm font-semibold text-gray-800">{{ __('Planning Information') }}</div>
+							<div class="space-y-3 text-sm">
+								<div v-if="selectedVisit.visit_type"><div class="text-gray-500">{{ __('Visit Type') }}</div><div class="break-words">{{ selectedVisit.visit_type }}</div></div>
+								<div v-if="selectedVisit.visit_purpose"><div class="text-gray-500">{{ __('Visit Purpose') }}</div><div class="whitespace-pre-wrap break-words">{{ selectedVisit.visit_purpose }}</div></div>
+							</div>
+						</section>
+
+						<section v-if="hasAnyVisitValue(['checkin_time', 'checkout_time'])" class="space-y-3 border-t pt-4">
+							<div class="text-sm font-semibold text-gray-800">{{ __('Actual Visit Information') }}</div>
+							<div class="grid grid-cols-1 gap-3 text-sm">
+								<div v-if="selectedVisit.checkin_time"><div class="text-gray-500">{{ __('Check In') }}</div><div>{{ formatDateTime(selectedVisit.checkin_time) }}</div></div>
+								<div v-if="selectedVisit.checkout_time"><div class="text-gray-500">{{ __('Check Out') }}</div><div>{{ formatDateTime(selectedVisit.checkout_time) }}</div></div>
+							</div>
+						</section>
+
+						<section v-if="hasVisitLocation" class="space-y-3 border-t pt-4">
+							<div class="text-sm font-semibold text-gray-800">{{ __('Location Information') }}</div>
+							<div class="space-y-3 text-sm">
+								<div v-if="selectedVisit.address"><div class="text-gray-500">{{ __('Visit Address') }}</div><div class="whitespace-pre-wrap break-words">{{ selectedVisit.address }}</div></div>
+								<div v-if="hasCoordinates(selectedVisit.planned_latitude, selectedVisit.planned_longitude)">
+									<div class="text-gray-500">{{ __('Planned Location') }}</div>
+									<div class="text-gray-500 break-all">{{ formatCoordinates(selectedVisit.planned_latitude, selectedVisit.planned_longitude) }}</div>
+								</div>
+								<div v-if="selectedVisit.checkin_address || hasCoordinates(selectedVisit.checkin_latitude, selectedVisit.checkin_longitude)">
+									<div class="text-gray-500">{{ __('Check-In Location') }}</div>
+									<div v-if="selectedVisit.checkin_address" class="break-words">{{ selectedVisit.checkin_address }}</div>
+									<div v-if="hasCoordinates(selectedVisit.checkin_latitude, selectedVisit.checkin_longitude)" class="text-gray-500 break-all">{{ formatCoordinates(selectedVisit.checkin_latitude, selectedVisit.checkin_longitude) }}</div>
+								</div>
+								<div v-if="selectedVisit.checkout_address || hasCoordinates(selectedVisit.checkout_latitude, selectedVisit.checkout_longitude)">
+									<div class="text-gray-500">{{ __('Check-Out Location') }}</div>
+									<div v-if="selectedVisit.checkout_address" class="break-words">{{ selectedVisit.checkout_address }}</div>
+									<div v-if="hasCoordinates(selectedVisit.checkout_latitude, selectedVisit.checkout_longitude)" class="text-gray-500 break-all">{{ formatCoordinates(selectedVisit.checkout_latitude, selectedVisit.checkout_longitude) }}</div>
+								</div>
+							</div>
+						</section>
+
+						<section v-if="hasAnyVisitValue(['remarks', 'cancellation_reason', 'cancelled_by', 'cancelled_time'])" class="space-y-3 border-t pt-4">
+							<div class="text-sm font-semibold text-gray-800">{{ __('Remarks / Additional Details') }}</div>
+							<div class="space-y-3 text-sm">
+								<div v-if="selectedVisit.remarks"><div class="text-gray-500">{{ __('Remarks') }}</div><div class="whitespace-pre-wrap break-words">{{ selectedVisit.remarks }}</div></div>
+								<div v-if="selectedVisit.cancellation_reason"><div class="text-gray-500">{{ __('Cancellation Reason') }}</div><div class="whitespace-pre-wrap break-words">{{ selectedVisit.cancellation_reason }}</div></div>
+								<div v-if="selectedVisit.cancelled_by"><div class="text-gray-500">{{ __('Cancelled By') }}</div><div class="break-words">{{ selectedVisit.cancelled_by }}</div></div>
+								<div v-if="selectedVisit.cancelled_time"><div class="text-gray-500">{{ __('Cancelled On') }}</div><div>{{ formatDateTime(selectedVisit.cancelled_time) }}</div></div>
+							</div>
+						</section>
+
+						<section v-if="selectedVisit.attachments?.length" class="space-y-3 border-t pt-4">
+							<div class="text-sm font-semibold text-gray-800">{{ __('Attachments') }}</div>
+							<div class="space-y-2 text-sm">
+								<a v-for="file in selectedVisit.attachments" :key="file.name" :href="file.file_url" target="_blank" rel="noopener noreferrer" class="block text-blue-600 break-words">
+									{{ file.file_name || file.name }}
+								</a>
+							</div>
+						</section>
+					</template>
 				</div>
 			</ion-modal>
 		</template>
@@ -231,12 +374,21 @@ const dayjs = inject("$dayjs")
 const route = useRoute()
 const visits = ref([])
 const loading = ref(false)
+const activeView = ref("planning")
+const historyVisits = ref([])
+const historyLoading = ref(false)
+const historyLoadingMore = ref(false)
+const hasMoreHistory = ref(false)
+const historySearch = ref("")
+const historyStatus = ref("")
 const saving = ref(false)
 const savingCustomer = ref(false)
 const actionName = ref(null)
 const showAddModal = ref(false)
 const showAddCustomerModal = ref(false)
 const selectedVisit = ref(null)
+const visitDetailLoading = ref(false)
+const visitDetailError = ref("")
 const customerType = ref("Existing Customer")
 const newVisit = ref(emptyVisit())
 const visitCustomers = ref([])
@@ -251,6 +403,21 @@ const newCustomerForm = ref({
 })
 
 const ADD_NEW_VALUE = "__ADD_NEW__"
+const VISIT_PAGE_LENGTH = 50
+const visitStatuses = ["Planned", "In Progress", "Completed", "Cancelled"]
+const hasVisitLocation = computed(() =>
+	hasAnyVisitValue([
+		"address",
+		"planned_latitude",
+		"planned_longitude",
+		"checkin_address",
+		"checkin_latitude",
+		"checkin_longitude",
+		"checkout_address",
+		"checkout_latitude",
+		"checkout_longitude",
+	]),
+)
 
 const newCustomerOptions = computed(() => {
 	const list = (visitCustomers.value || []).map((c) => {
@@ -336,6 +503,40 @@ const visitApi = async (method, args = {}) => {
 async function loadVisits() {
 	loading.value = true
 	try { visits.value = await visitApi("get_today_visits") } catch (error) { showError(error) } finally { loading.value = false }
+}
+
+async function loadVisitHistory(append = false) {
+	if (append) historyLoadingMore.value = true
+	else historyLoading.value = true
+	try {
+		const rows = await visitApi("get_visit_history", {
+			start: append ? historyVisits.value.length : 0,
+			page_length: VISIT_PAGE_LENGTH + 1,
+			search: historySearch.value,
+			status: historyStatus.value,
+		})
+		hasMoreHistory.value = rows.length > VISIT_PAGE_LENGTH
+		const page = rows.slice(0, VISIT_PAGE_LENGTH)
+		historyVisits.value = append ? [...historyVisits.value, ...page] : page
+	} catch (error) {
+		showError(error)
+	} finally {
+		historyLoading.value = false
+		historyLoadingMore.value = false
+	}
+}
+
+function loadMoreHistory() {
+	return loadVisitHistory(true)
+}
+
+function switchView(view) {
+	activeView.value = view
+	if (view === "history") loadVisitHistory()
+}
+
+function refreshVisits() {
+	return activeView.value === "history" ? loadVisitHistory() : loadVisits()
 }
 
 async function loadVisitCustomers(txt = "") {
@@ -472,7 +673,27 @@ async function confirmCancel(visit) {
 }
 
 async function openDetails(visit) {
+	visitDetailError.value = ""
 	try { selectedVisit.value = await visitApi("get_visit", { name: visit.name }) } catch (error) { showError(error) }
+}
+
+async function openHistoryDetails(visit) {
+	selectedVisit.value = visit
+	visitDetailLoading.value = true
+	visitDetailError.value = ""
+	try {
+		selectedVisit.value = await visitApi("get_visit_history_detail", { name: visit.name })
+	} catch (error) {
+		visitDetailError.value = error.message
+	} finally {
+		visitDetailLoading.value = false
+	}
+}
+
+function closeVisitDetails() {
+	selectedVisit.value = null
+	visitDetailLoading.value = false
+	visitDetailError.value = ""
 }
 
 function emptyVisit() {
@@ -490,6 +711,11 @@ function emptyVisit() {
 }
 
 function formatTime(value) { return value ? dayjs(value).format("h:mm A") : "-" }
+function formatDate(value) { return value ? dayjs(value).format("D MMM YYYY") : "-" }
+function formatDateTime(value) { return value ? dayjs(value).format("D MMM YYYY, h:mm A") : "-" }
+function hasAnyVisitValue(fields) { return fields.some((field) => selectedVisit.value?.[field] !== null && selectedVisit.value?.[field] !== undefined && selectedVisit.value?.[field] !== "") }
+function hasCoordinates(latitude, longitude) { return latitude !== null && latitude !== undefined && latitude !== "" && longitude !== null && longitude !== undefined && longitude !== "" }
+function formatCoordinates(latitude, longitude) { return `${latitude}, ${longitude}` }
 function statusTheme(status) { return { Planned: 'gray', 'In Progress': 'orange', Completed: 'green', Cancelled: 'red' }[status] || 'gray' }
 function showError(error) { toast({ title: __('Error'), text: error.message, icon: 'alert-circle', position: 'bottom-center', iconClasses: 'text-red-500' }) }
 function getLocationError(error) {
@@ -515,38 +741,10 @@ function getServerError(payload) {
 	return payload?.message || payload?.exception || __('Unable to complete the visit action.')
 }
 
-const VisitDetails = {
-	props: ["visit", "formatTime"],
-	template: `
-		<div class="space-y-3 text-sm">
-			<div><b>Status</b><div>{{ visit.status }}</div></div>
-			<div><b>Customer Type</b><div>{{ visit.customer_type || 'Existing Customer' }}</div></div>
-			<div><b>Customer</b><div>{{ visit.customer_name || visit.customer || visit.new_customer }}</div></div>
-			<div v-if="visit.contact_person"><b>Contact Person</b><div>{{ visit.contact_person }}</div></div>
-			<div v-if="visit.address"><b>Address</b><div>{{ visit.address }}</div></div>
-			<div><b>Visit Date</b><div>{{ visit.visit_date }}</div></div>
-			<div v-if="visit.visit_type"><b>Visit Type</b><div>{{ visit.visit_type }}</div></div>
-			<div v-if="visit.visit_purpose"><b>Purpose</b><div>{{ visit.visit_purpose }}</div></div>
-			<div v-if="visit.remarks"><b>Remarks</b><div>{{ visit.remarks }}</div></div>
-			<div v-if="visit.checkin_time">
-				<b>Check In</b>
-				<div>{{ formatTime(visit.checkin_time) }} · {{ visit.checkin_latitude }}, {{ visit.checkin_longitude }}</div>
-				<div v-if="visit.checkin_address" class="text-gray-600 mt-1">{{ visit.checkin_address }}</div>
-			</div>
-			<div v-if="visit.checkout_time">
-				<b>Check Out</b>
-				<div>{{ formatTime(visit.checkout_time) }} · {{ visit.checkout_latitude }}, {{ visit.checkout_longitude }}</div>
-				<div v-if="visit.checkout_address" class="text-gray-600 mt-1">{{ visit.checkout_address }}</div>
-			</div>
-			<div v-if="visit.cancellation_reason"><b>Cancellation Reason</b><div>{{ visit.cancellation_reason }}</div></div>
-		</div>
-	`,
-}
-
 let unregisterRefreshHandler = () => {}
 onMounted(() => {
 	loadVisits()
-	unregisterRefreshHandler = registerRefreshHandler(route.name, loadVisits)
+	unregisterRefreshHandler = registerRefreshHandler(route.name, refreshVisits)
 })
 
 onBeforeUnmount(() => {
