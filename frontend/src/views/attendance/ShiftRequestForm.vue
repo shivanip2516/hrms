@@ -5,7 +5,7 @@
 				v-if="formFields.data"
 				doctype="Shift Request"
 				v-model="shiftRequest"
-				:isSubmittable="true"
+				:isSubmittable="false"
 				:fields="formFields.data"
 				:id="props.id"
 				@validateForm="validateForm"

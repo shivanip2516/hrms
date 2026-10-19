@@ -29,6 +29,11 @@ export default function useWorkflow(doctype) {
 	}
 
 	const getTransitions = async (doc) => {
+		const submittingStates = new Set(
+			workflowDoc.data?.states
+				?.filter((state) => Number(state.doc_status) === 1)
+				.map((state) => state.state) || []
+		)
 		const transitions = createResource({
 			url: "frappe.model.workflow.get_transitions",
 			params: { doc: doc },
@@ -37,7 +42,9 @@ export default function useWorkflow(doctype) {
 
 				return data
 					.filter(
-						(transition) => transition.allow_self_approval || !isSelfApproval
+						(transition) =>
+							!submittingStates.has(transition.next_state) &&
+							(transition.allow_self_approval || !isSelfApproval)
 					)
 					.map((transition) => transition.action)
 			},

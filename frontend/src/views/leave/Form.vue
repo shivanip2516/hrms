@@ -5,7 +5,7 @@
 				v-if="formFields.data"
 				doctype="Leave Application"
 				v-model="leaveApplication"
-				:isSubmittable="true"
+				:isSubmittable="false"
 				:fields="formFields.data"
 				:id="props.id"
 				:showAttachmentView="true"

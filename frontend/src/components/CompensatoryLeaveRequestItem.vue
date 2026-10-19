@@ -53,6 +53,7 @@ const status = computed(() => {
 	if (props.workflowStateField && props.doc[props.workflowStateField]) {
 		return props.doc[props.workflowStateField]
 	}
+	if (props.doc.custom_status) return props.doc.custom_status
 	if (props.doc.docstatus === 1) return "Approved"
 	if (props.doc.docstatus === 2) return "Cancelled"
 	return "Draft"
@@ -62,6 +63,7 @@ const colorMap = {
 	Approved: "green",
 	Cancelled: "red",
 	Draft: "orange",
+	"Pending Approval": "orange",
 	Open: "orange",
 	Rejected: "red",
 }

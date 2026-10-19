@@ -189,7 +189,7 @@
 				@workflowApplied="reloadDoc()"
 			/>
 
-			<!-- save/submit/cancel -->
+			<!-- save/cancel -->
 			<div
 				v-else-if="isFormDirty || (!workflow?.hasWorkflow && formButton)"
 				class="px-4 pt-4 pb-4 standalone:pb-safe-bottom sm:w-96 bg-white sticky bottom-0 w-full drop-shadow-xl z-40 border-t rounded-t-lg"
@@ -206,7 +206,7 @@
 				<Button
 					class="w-full rounded py-5 text-base disabled:bg-gray-700 disabled:text-white"
 					:class="formButton === 'Cancel' ? 'shadow' : ''"
-					@click="formButton === 'Save' ? saveForm() : submitOrCancelForm()"
+					@click="formButton === 'Save' ? saveForm() : openCancelDialog()"
 					:variant="formButton === 'Cancel' ? 'subtle' : 'solid'"
 					:loading="
 						docList.insert.loading || documentResource?.setValue?.loading
@@ -246,37 +246,6 @@
 					class="py-5 w-full"
 				>
 					{{__("Delete") }}
-				</Button>
-			</div>
-		</template>
-	</Dialog>
-
-	<Dialog v-model="showSubmitDialog">
-		<template #body-title>
-			<h2 class="text-xl font-bold">{{ __("Confirm") }} </h2>
-		</template>
-		<template #body-content>
-			<p>
-				{{ __("Permanently submit {0}", [__(props.doctype)]) }}
-				<span class="font-bold">{{ formModel.name }}</span>
-				?
-			</p>
-		</template>
-		<template #actions>
-			<div class="flex flex-row gap-4">
-				<Button
-					variant="outline"
-					class="py-5 w-full"
-					@click="showSubmitDialog = false"
-				>
-					{{ __("No") }}
-				</Button>
-				<Button
-					variant="solid"
-					@click="handleDocUpdate('submit')"
-					class="py-5 w-full"
-				>
-					{{ __("Yes") }}
 				</Button>
 			</div>
 		</template>
@@ -401,7 +370,6 @@ let formErrorMessage = ref("")
 let isFormDirty = ref(false)
 let isFormUpdated = ref(false)
 let showDeleteDialog = ref(false)
-let showSubmitDialog = ref(false)
 let showCancelDialog = ref(false)
 let isFileUploading = ref(false)
 let workflow = ref(null)
@@ -616,13 +584,15 @@ const permittedWriteFields = createResource({
 const formButton = computed(() => {
 	if (!props.showFormButton) return
 
-	if (props.id && props.isSubmittable && !isFormDirty.value) {
-		if (formModel.value.docstatus === 0 && hasPermission("submit")) {
-			return "Submit"
-		} else if (formModel.value.docstatus === 1 && hasPermission("cancel")) {
-			return "Cancel"
-		}
-	} else if (formModel.value.docstatus !== 2) {
+	if (
+		props.id &&
+		props.isSubmittable &&
+		!isFormDirty.value &&
+		formModel.value.docstatus === 1 &&
+		hasPermission("cancel")
+	) {
+		return "Cancel"
+	} else if (formModel.value.docstatus === 0 || formModel.value.docstatus == null) {
 		return "Save"
 	}
 })
@@ -673,9 +643,7 @@ async function handleDocUpdate(action) {
 
 		if (!validateMandatoryFields()) return
 
-		if (action == "submit") {
-			params.docstatus = 1
-		} else if (action == "cancel") {
+		if (action == "cancel") {
 			params.docstatus = 2
 		}
 
@@ -685,8 +653,7 @@ async function handleDocUpdate(action) {
 		triggerRefresh(route.name, { force: true })
 	}
 
-	if (action === "submit") showSubmitDialog.value = false
-	else if (action === "cancel") showCancelDialog.value = false
+	if (action === "cancel") showCancelDialog.value = false
 }
 
 function saveForm() {
@@ -699,13 +666,8 @@ function saveForm() {
 	}
 }
 
-function submitOrCancelForm() {
-	if (isFormDirty.value) return
-
-	if (formModel.value.docstatus === 0) {
-		emit("validateForm")
-		showSubmitDialog.value = true
-	} else if (formModel.value.docstatus === 1) {
+function openCancelDialog() {
+	if (!isFormDirty.value && formModel.value.docstatus === 1) {
 		showCancelDialog.value = true
 	}
 }

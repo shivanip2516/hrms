@@ -5,7 +5,7 @@
 				v-if="formFields.data"
 				doctype="Employee Advance"
 				v-model="employeeAdvance"
-				:isSubmittable="true"
+				:isSubmittable="false"
 				:fields="formFields.data"
 				:id="props.id"
 				:showAttachmentView="true"

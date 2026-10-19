@@ -5,23 +5,48 @@
 				v-if="formFields.data"
 				doctype="Compensatory Leave Request"
 				v-model="compensatoryLeaveRequest"
-				:isSubmittable="true"
+				:isSubmittable="false"
 				:fields="formFields.data"
 				:id="props.id"
+				:showFormButton="canEmployeeSave"
 				@validateForm="validateForm"
-			/>
+			>
+				<template #formButton>
+					<div v-if="canReview" class="flex gap-3">
+						<Button
+							class="w-full py-5"
+							variant="subtle"
+							theme="red"
+							:loading="reviewRequest.loading"
+							@click="reviewCompOff('Rejected')"
+						>
+							{{ __("Reject") }}
+						</Button>
+						<Button
+							class="w-full py-5"
+							variant="solid"
+							theme="green"
+							:loading="reviewRequest.loading"
+							@click="reviewCompOff('Approved')"
+						>
+							{{ __("Approve") }}
+						</Button>
+					</div>
+				</template>
+			</FormView>
 		</ion-content>
 	</ion-page>
 </template>
 
 <script setup>
 import { IonPage, IonContent } from "@ionic/vue"
-import { createResource } from "frappe-ui"
-import { ref, watch, inject } from "vue"
+import { createResource, toast } from "frappe-ui"
+import { computed, ref, watch, inject } from "vue"
 
 import FormView from "@/components/FormView.vue"
 
 const employee = inject("$employee")
+const user = inject("$user")
 const __ = inject("$translate")
 
 const props = defineProps({
@@ -32,7 +57,23 @@ const props = defineProps({
 })
 
 // reactive object to store form data
-const compensatoryLeaveRequest = ref({})
+const compensatoryLeaveRequest = ref({ custom_pwa_comp_off: 1 })
+
+const canEmployeeSave = computed(
+	() =>
+		!props.id ||
+		(compensatoryLeaveRequest.value.employee === employee.data?.name &&
+			compensatoryLeaveRequest.value.docstatus === 0 &&
+			compensatoryLeaveRequest.value.custom_status === "Draft")
+)
+
+const canReview = computed(
+	() =>
+		Boolean(props.id) &&
+		compensatoryLeaveRequest.value.docstatus === 0 &&
+		compensatoryLeaveRequest.value.custom_status === "Pending Approval" &&
+		compensatoryLeaveRequest.value.custom_leave_approver === user.data?.name
+)
 
 // get form fields
 const formFields = createResource({
@@ -97,6 +138,15 @@ watch(
 )
 
 watch(
+	() => compensatoryLeaveRequest.value.custom_status,
+	(status) => {
+		if (props.id && status !== "Draft") {
+			setFormReadOnly()
+		}
+	}
+)
+
+watch(
 	() => compensatoryLeaveRequest.value.work_from_date,
 	(work_from_date) => {
 		if (!compensatoryLeaveRequest.value.work_end_date) {
@@ -142,5 +192,25 @@ function validateDates(work_from_date, work_end_date) {
 
 function validateForm() {
 	compensatoryLeaveRequest.value.employee = employee.data?.name
+	compensatoryLeaveRequest.value.custom_pwa_comp_off = 1
+}
+
+const reviewRequest = createResource({
+	url: "dekure_custom.comp_off.review_pwa_comp_off",
+	onSuccess(data) {
+		compensatoryLeaveRequest.value.custom_status = data.status
+		compensatoryLeaveRequest.value.docstatus = data.docstatus
+		toast({
+			title: __("Success"),
+			text: __("Comp-Off request {0} successfully!", [data.status.toLowerCase()]),
+			icon: "check-circle",
+			position: "bottom-center",
+			iconClasses: "text-green-500",
+		})
+	},
+})
+
+function reviewCompOff(action) {
+	reviewRequest.submit({ name: props.id, action })
 }
 </script>

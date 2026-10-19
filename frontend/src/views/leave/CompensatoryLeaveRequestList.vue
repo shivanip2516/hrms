@@ -28,6 +28,7 @@ const COMPENSATORY_LEAVE_FIELDS = [
 	"half_day",
 	"half_day_date",
 	"reason",
+	"custom_status",
 	"docstatus",
 ]
 

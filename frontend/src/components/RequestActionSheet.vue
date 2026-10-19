@@ -110,24 +110,6 @@
 		</div>
 
 		<div
-			v-else-if="
-				document?.doc?.docstatus === 0 &&
-				(document?.doc?.doctype === 'Attendance Request' ||
-					['Approved', 'Rejected'].includes(document?.doc?.[approvalField])) &&
-				hasPermission('submit')
-			"
-			class="flex w-full flex-row items-center justify-between gap-3 sticky bottom-0 border-t z-[100] p-4"
-		>
-			<Button
-				@click="updateDocumentStatus({ docstatus: 1 })"
-				class="w-full py-5"
-				variant="solid"
-			>
-				{{ __("Submit") }}
-			</Button>
-		</div>
-
-		<div
 			v-else-if="document?.doc?.docstatus === 1 && hasPermission('cancel')"
 			class="flex w-full flex-row items-center justify-between gap-3 sticky bottom-0 border-t z-[100] p-4"
 		>

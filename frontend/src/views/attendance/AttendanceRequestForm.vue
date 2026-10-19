@@ -5,7 +5,7 @@
 				v-if="formFields.data"
 				doctype="Attendance Request"
 				v-model="attendanceRequest"
-				:isSubmittable="true"
+				:isSubmittable="false"
 				:fields="formFields.data"
 				:id="props.id"
 				@validateForm="validateForm"
