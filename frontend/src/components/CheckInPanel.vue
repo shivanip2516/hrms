@@ -47,7 +47,11 @@
 					{{ __("Request Missed Check-out") }}
 				</Button>
 			</div>
-
+			<div v-if="attendanceInfo.data?.status" class="font-medium text-sm text-gray-500 mt-1.5">
+				{{ __(attendanceInfo.data.status) }}
+				<span v-if="attendanceInfo.data.in_time"> · {{ __("IN") }} {{ formatTimestamp(attendanceInfo.data.in_time) }}</span>
+				<span v-if="attendanceInfo.data.out_time"> · {{ __("OUT") }} {{ formatTimestamp(attendanceInfo.data.out_time) }}</span>
+			</div>
 			<Button
 				v-if="currentAction"
 				class="mt-4 mb-1 drop-shadow-sm py-5 text-base"
@@ -153,7 +157,8 @@
 </template>
 
 <script setup>
-import { createListResource, toast, FeatherIcon } from "frappe-ui"
+import { createListResource, createResource, toast, FeatherIcon } from "frappe-ui"
+import { getCachedResource } from "frappe-ui/src/resources/resources"
 import { computed, inject, ref, onMounted, onBeforeUnmount } from "vue"
 import { useRoute } from "vue-router"
 import { IonModal, modalController } from "@ionic/vue"
@@ -184,13 +189,35 @@ const missedCheckoutSubmitting = ref(false)
 const missedCheckoutRequest = ref(emptyMissedCheckoutRequest())
 const missedCheckoutLocationStatus = ref("")
 
+const attendanceInfo = createResource({
+	url: "frappe.client.get_value",
+	cache: ["dekure:attendance_summary", employee.data.name],
+	params: {
+		doctype: "Attendance",
+		filters: { name: "__no_pwa_attendance__", employee: employee.data.name },
+		fieldname: ["status", "docstatus", "in_time", "out_time", "working_hours"],
+	},
+})
+
 const checkins = createListResource({
 	doctype: DOCTYPE,
-	fields: ["name", "employee", "employee_name", "log_type", "time", "device_id"],
+	fields: ["name", "employee", "employee_name", "log_type", "time", "device_id", "attendance"],
 	filters: {
 		employee: employee.data.name,
 	},
 	orderBy: "time desc",
+	onSuccess(data) {
+		const attendance = data[0]?.attendance
+		if (attendance) {
+			attendanceInfo.fetch({
+				doctype: "Attendance",
+				filters: { name: attendance, employee: employee.data.name },
+				fieldname: ["status", "docstatus", "in_time", "out_time", "working_hours"],
+			})
+		} else {
+			attendanceInfo.data = null
+		}
+	},
 })
 checkins.reload()
 
@@ -319,6 +346,8 @@ function handleSelfieCancel() {
 }
 
 async function submitLogWithSelfie(logType, fileUrl) {
+// const submitLog = (logType) => {
+	if (checkins.insert.loading) return
 	const actionLabel = logType === "IN" ? __("Check-in") : __("Check-out")
 
 	checkins.insert.submit(
@@ -334,6 +363,9 @@ async function submitLogWithSelfie(logType, fileUrl) {
 		{
 			onSuccess() {
 				// Modal was already dismissed when selfie capture started
+				checkins.reload()
+				getCachedResource("hrms:attendance_calendar_events")?.reload()
+				modalController.dismiss()
 				toast({
 					title: __("Success"),
 					text: __("{0} successful!", [actionLabel]),
