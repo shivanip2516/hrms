@@ -440,7 +440,7 @@ async function loadAttendanceStatus() {
 function openMissedCheckoutDialog() {
 	missedCheckoutRequest.value = {
 		attendance_date: attendanceStatus.value?.missed_checkout_date || "",
-		requested_time: formatTimeForInput(attendanceStatus.value?.default_checkout_time),
+		requested_time: "",
 		reason: "",
 	}
 	showMissedCheckoutDialog.value = true
@@ -453,7 +453,17 @@ function closeMissedCheckoutDialog() {
 }
 
 async function submitMissedCheckoutRequest() {
-	if (!missedCheckoutRequest.value.requested_time || !missedCheckoutRequest.value.reason?.trim()) {
+	if (!missedCheckoutRequest.value.requested_time) {
+		toast({
+			title: __("Error"),
+			text: __("Please enter the missed check-out time."),
+			icon: "alert-circle",
+			position: "bottom-center",
+			iconClasses: "text-red-500",
+		})
+		return
+	}
+	if (!missedCheckoutRequest.value.reason?.trim()) {
 		toast({
 			title: __("Error"),
 			text: __("Requested Check-out Time and Reason are required."),
@@ -526,11 +536,6 @@ function emptyMissedCheckoutRequest() {
 
 function formatDate(value) {
 	return value ? dayjs(value).format("DD-MMM-YYYY") : "-"
-}
-
-function formatTimeForInput(value) {
-	if (!value) return ""
-	return String(value).slice(0, 5)
 }
 
 function getServerError(payload) {
