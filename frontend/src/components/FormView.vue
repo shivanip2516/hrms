@@ -198,7 +198,7 @@
 					class="mb-2"
 					:message="
 						formErrorMessage ||
-						docList?.insert?.error ||
+						displayedInsertError ||
 						documentResource?.setValue?.error
 					"
 				/>
@@ -362,6 +362,7 @@ const route = useRoute()
 const { downloadPDF } = useDownloadPDF()
 
 const __ = inject("$translate")
+const dayjs = inject("$dayjs")
 
 let activeTab = ref(props.tabs?.[0].name)
 let fileAttachments = ref([])
@@ -596,6 +597,36 @@ const formButton = computed(() => {
 		return "Save"
 	}
 })
+
+const displayedInsertError = computed(() => {
+	const error = docList?.insert?.error
+	if (!isAttendanceStatusUnchangedError(error)) return error
+
+	const date = formModel.value.from_date
+		? dayjs(formModel.value.from_date).format("DD-MM-YYYY")
+		: ""
+	if (!date) return error
+
+	if (formModel.value.reason === "On Duty" && !formModel.value.half_day) {
+		return __(
+			"Attendance is already marked as Present for {0}. No attendance correction is required.",
+			[date]
+		)
+	}
+
+	return __(
+		"Your attendance request cannot be processed for {0} because it would not change your existing attendance status.",
+		[date]
+	)
+})
+
+function isAttendanceStatusUnchangedError(error) {
+	if (props.doctype !== "Attendance Request" || !error) return false
+
+	const messages = [error.message, error.exc, ...(error.messages || [])].filter(Boolean).join(" ")
+
+	return messages.includes("Attendance status unchanged") && messages.includes("Skip")
+}
 
 function showDeleteButton() {
 	return props.id && formModel.value.docstatus !== 1 && hasPermission("delete")
