@@ -188,6 +188,7 @@ const showMissedCheckoutDialog = ref(false)
 const missedCheckoutSubmitting = ref(false)
 const missedCheckoutRequest = ref(emptyMissedCheckoutRequest())
 const missedCheckoutLocationStatus = ref("")
+let attendanceStatusTimer = null
 
 const attendanceInfo = createResource({
 	url: "frappe.client.get_value",
@@ -230,21 +231,15 @@ const lastLogType = computed(() => {
 	return lastLog?.value?.log_type === "IN" ? "check-in" : "check-out"
 })
 
-const nextAction = computed(() => {
-	return lastLog?.value?.log_type === "IN"
-		? { action: "OUT", label: __("Check Out") }
-		: { action: "IN", label: __("Check In") }
-})
-
 const currentAction = computed(() => {
+	// The backend status is the source of truth for the current calendar date.
+	// Do not fall back to the latest historical punch while it is loading.
+	if (!attendanceStatus.value) return null
 	if (attendanceStatus.value?.can_checkout) {
 		return { action: "OUT", label: __("Check Out") }
 	}
 	if (attendanceStatus.value?.can_checkin) {
 		return { action: "IN", label: __("Check In") }
-	}
-	if (!attendanceStatus.value) {
-		return nextAction.value
 	}
 	return null
 })
@@ -554,6 +549,13 @@ function getServerError(payload) {
 
 onMounted(() => {
 	loadAttendanceStatus()
+	// Re-read the server's application date/status while the PWA remains open.
+	// This avoids deriving a date from the browser timezone and is not a rolling
+	// attendance window; the backend still enforces the calendar-day boundary.
+	attendanceStatusTimer = window.setInterval(() => {
+		checkins.reload()
+		loadAttendanceStatus()
+	}, 60 * 1000)
 	unregisterRefreshHandler = registerRefreshHandler(route.name, () => {
 		checkins.reload()
 		return loadAttendanceStatus()
@@ -574,6 +576,7 @@ onMounted(() => {
 let unregisterRefreshHandler = () => {}
 onBeforeUnmount(() => {
 	unregisterRefreshHandler()
+	if (attendanceStatusTimer) window.clearInterval(attendanceStatusTimer)
 	socket.emit("doctype_unsubscribe", DOCTYPE)
 	socket.off("list_update")
 	socket.off("dekure_attendance_processed")
