@@ -83,7 +83,8 @@
 	<ion-modal
 		v-if="settings.data?.allow_employee_checkin_from_mobile_app"
 		ref="modal"
-		trigger="open-checkin-modal"
+		:is-open="showCheckinModal"
+		@didDismiss="showCheckinModal = false"
 		:initial-breakpoint="1"
 		:breakpoints="[0, 1]"
 	>
@@ -184,6 +185,7 @@ const pendingLogType = ref(null)
 const pendingSelfieFile = ref(null)
 const attendanceStatus = ref(null)
 const attendanceStatusLoading = ref(false)
+const showCheckinModal = ref(false)
 const showMissedCheckoutDialog = ref(false)
 const missedCheckoutSubmitting = ref(false)
 const missedCheckoutRequest = ref(emptyMissedCheckoutRequest())
@@ -271,6 +273,7 @@ const fetchLocation = () => {
 const handleEmployeeCheckin = () => {
 	if (!currentAction.value) return
 	checkinTimestamp.value = dayjs().format("YYYY-MM-DD HH:mm:ss")
+	showCheckinModal.value = true
 
 	if (settings.data?.allow_geolocation_tracking) {
 		fetchLocation()
