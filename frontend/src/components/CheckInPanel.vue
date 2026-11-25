@@ -56,7 +56,7 @@
 				v-if="currentAction"
 				class="mt-4 mb-1 drop-shadow-sm py-5 text-base"
 				id="open-checkin-modal"
-				:loading="checkins.list.loading || attendanceStatusLoading"
+				:loading="attendanceStatusLoading"
 				@click="handleEmployeeCheckin"
 			>
 				<template #prefix>
